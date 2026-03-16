@@ -251,9 +251,10 @@ Client                          Server
   │                               │
   │  POST /runs/{run_id}/approve  │
   │  {candidate_id,               │
-  │   confirmations: {            │
+  │   user_confirmations: {       │
   │     risks_reviewed: true,     │
-  │     stop_conditions: true,    │
+  │     stop_conditions_reviewed: │
+  │       true,                   │
   │     paper_run_understood: true│
   │   },                          │
   │   virtual_capital: 1000000}   │
@@ -310,7 +311,7 @@ Client                          Server
   │  POST /paper-runs/{id}/       │
   │        re-approve             │
   │  {candidate_id,               │
-  │   confirmations: {...}}       │
+  │   user_confirmations: {...}}  │
   │ ─────────────────────────→    │
   │                               │ → Create new Approval
   │                               │ → Resume or start new PaperRun
@@ -952,3 +953,9 @@ Each round is testable independently. Round 1–5 can be validated with a single
 ---
 
 **Role of this document**: This defines how data flows between modules, how the API is structured, how data is persisted, and how the audit trail works. Implementation of API endpoints, storage layer, and inter-module communication must conform to these specifications. If implementation reveals a flow that doesn't match this document, update this document before changing the flow.
+
+---
+
+**Fixes applied in this version**:
+- Flow B: `confirmations` → `user_confirmations`, `stop_conditions` → `stop_conditions_reviewed` to match internal_schema.md §11 Approval Object field names (B-1)
+- Flow E: `confirmations` → `user_confirmations` for same reason (B-1)

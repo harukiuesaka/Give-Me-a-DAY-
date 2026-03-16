@@ -454,10 +454,10 @@ Every LLM call has a template-based fallback if the API is unavailable. Fallback
 | `GET` | `/api/v1/runs/{run_id}/status` | — | `{status, current_step, steps_completed, steps_total, estimated_remaining_seconds}` | 200 |
 | `GET` | `/api/v1/runs/{run_id}/result` | — | `{candidate_cards[], presentation_context, approval_url}` | 200 |
 | `GET` | `/api/v1/runs/{run_id}/export` | — | Markdown text | 200 |
-| `POST` | `/api/v1/runs/{run_id}/approve` | `{candidate_id, confirmations, virtual_capital?}` | `{approval_id, paper_run_id, status_url}` | 201 |
+| `POST` | `/api/v1/runs/{run_id}/approve` | `{candidate_id, user_confirmations, virtual_capital?}` | `{approval_id, paper_run_id, status_url}` | 201 |
 | `GET` | `/api/v1/paper-runs/{pr_id}` | — | `{status, day_count, current_value, return_pct, safety_status, schedule}` | 200 |
 | `POST` | `/api/v1/paper-runs/{pr_id}/stop` | — | `{status: "halted"}` | 200 |
-| `POST` | `/api/v1/paper-runs/{pr_id}/re-approve` | `{candidate_id, confirmations}` | `{new_approval_id, status}` | 201 |
+| `POST` | `/api/v1/paper-runs/{pr_id}/re-approve` | `{candidate_id, user_confirmations}` | `{new_approval_id, status}` | 201 |
 | `GET` | `/api/v1/paper-runs/{pr_id}/reports` | — | `MonthlyReport[]` | 200 |
 | `GET` | `/api/v1/paper-runs/{pr_id}/reports/{report_id}` | — | `MonthlyReport` | 200 |
 
@@ -726,3 +726,9 @@ Implementation must conform to these documents (in priority order):
 8. `api_data_flow.md` — API endpoints, persistence, audit trail
 
 If implementation conflicts with any of these documents, the document takes precedence. Update the document before changing the implementation.
+
+---
+
+**Fixes applied in this version**:
+- §8 API table: approve endpoint request body `confirmations` → `user_confirmations` to match internal_schema.md §11 (B-1)
+- §8 API table: re-approve endpoint request body `confirmations` → `user_confirmations` for same reason (B-1)

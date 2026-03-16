@@ -437,7 +437,7 @@ Notes:
 ```
 
 Notes:
-- This is a **derived object**, not stored independently. Generated from Candidate + Audit + Recommendation + TestResult at presentation time.
+- This is a **derived object**. Generated from Candidate + Audit + Recommendation + TestResult at presentation time. Persisted for API serving but regenerated on demand if missing.
 - All fields are mandatory. A card with any missing field is invalid.
 - No other fields are shown to the user. Internal data points are compressed into these 8 fields.
 
@@ -486,10 +486,29 @@ Notes:
   },
   "stop_conditions": [
     {
-      "id": "string",
-      "type": "max_drawdown | consecutive_underperformance | signal_anomaly | data_quality_failure",
-      "threshold": "number | null",
-      "action": "halt_and_notify | pause_and_notify"
+      "id": "SC-01",
+      "type": "max_drawdown",
+      "threshold": -0.20,
+      "action": "halt_and_notify"
+    },
+    {
+      "id": "SC-02",
+      "type": "consecutive_underperformance",
+      "months": 3,
+      "benchmark": "market_index",
+      "action": "halt_and_notify"
+    },
+    {
+      "id": "SC-03",
+      "type": "signal_anomaly",
+      "threshold_sigma": 3.0,
+      "action": "pause_and_notify"
+    },
+    {
+      "id": "SC-04",
+      "type": "data_quality_failure",
+      "consecutive_days": 3,
+      "action": "pause_and_notify"
     }
   ],
   "re_evaluation": {
@@ -503,7 +522,7 @@ Notes:
 
 Notes:
 - `user_confirmations` must all be `true` for approval to be valid.
-- `stop_conditions` are system-defined in v1. Not user-configurable.
+- `stop_conditions` are system-defined in v1. Not user-configurable. Each condition type has its own specific fields (`threshold`, `months` + `benchmark`, `threshold_sigma`, `consecutive_days`) rather than a generic threshold.
 - `runtime_config` values are fixed in v1 except `initial_virtual_capital` and `currency`.
 
 ---
@@ -710,3 +729,10 @@ Notes:
 ---
 
 **Role of this document**: This is the single source of truth for all internal data structures in Give Me a DAY. Every module in the system reads from and writes to these objects. Implementation must validate enum values, referential integrity between objects, and mandatory field presence at write time. If a field is not defined here, it does not exist in the system.
+
+---
+
+**Fixes applied in this version**:
+- §9 CandidateCard Notes: changed "not stored independently" to "Persisted for API serving but regenerated on demand if missing" (I-2)
+- §11 Approval.stop_conditions: replaced generic `threshold: number | null` with per-type specific fields matching v1_output_spec.md (SC-01: `threshold`, SC-02: `months` + `benchmark`, SC-03: `threshold_sigma`, SC-04: `consecutive_days`) (B-2)
+- §11 Approval Notes: added clarification that each condition type has its own specific fields

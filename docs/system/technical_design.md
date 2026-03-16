@@ -15,13 +15,13 @@ User ──→ [1] GoalIntake
               ↓
          [3] ResearchSpecCompiler
               ↓
-         [5] CandidateGenerator ←── [4] EvidencePlanner
+         [4] CandidateGenerator ←── [5] EvidencePlanner
               ↓                          ↓
          [6] ValidationPlanner ←─────────┘
               ↓
          [7] ExecutionLayer (Validation)
               ↓
-         [8] AuditEngine ──── reject? ──→ [5] (once)
+         [8] AuditEngine ──── reject? ──→ [4] (once)
               ↓
          [9] RecommendationEngine
               ↓
@@ -371,7 +371,7 @@ def compile_spec(intent: UserIntent, frame: DomainFrame) -> ResearchSpec:
 
 ---
 
-## Module 4: EvidencePlanner
+## Module 5: EvidencePlanner
 
 ### Objective
 For each candidate, identify required evidence items, assess availability, detect biases, evaluate proxy options, and produce an EvidencePlan with coverage metrics.
@@ -469,7 +469,7 @@ Key subroutines:
 
 ---
 
-## Module 5: CandidateGenerator
+## Module 4: CandidateGenerator
 
 ### Objective
 Generate 3–5 genuinely different strategy candidates based on the ResearchSpec and DomainFrame.
@@ -1359,3 +1359,10 @@ If any phase exceeds its budget, the orchestrator proceeds with partial results.
 ---
 
 **Role of this document**: This is the implementation blueprint for Give Me a DAY v1. Each module section defines what to build, what it takes in, what it produces, how it fails, and what to measure. Implementation should follow this design module by module, validating each module's outputs against internal_schema.md before proceeding to the next. If implementation reveals a design flaw, update this document before changing the code.
+
+---
+
+**Fixes applied in this version**:
+- Module Map: [4] → CandidateGenerator, [5] → EvidencePlanner (was reversed). Now matches core_loop.md Step 4 = Candidate Generation, Step 5 = Evidence Planning (I-1)
+- Module section headings renumbered accordingly: "Module 4: CandidateGenerator", "Module 5: EvidencePlanner" (I-1)
+- Reject loop target updated: `reject? → [4]` (CandidateGenerator) instead of `[5]` (I-1)
