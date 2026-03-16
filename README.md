@@ -39,11 +39,13 @@ Give Me a DAY is not:
 
 Read these first:
 
-1. `CLAUDE.md`
-2. `docs/product/product_definition.md`
-3. `docs/product/v1_boundary.md`
-4. `docs/system/core_loop.md`
-5. `docs/system/internal_schema.md`
+1. `CLAUDE.md` — Project identity and non-negotiables
+2. `docs/product/product_definition.md` — What the product is and does
+3. `docs/product/v1_boundary.md` — What is in/out of scope for v1
+4. `docs/system/core_loop.md` — 12-step validate-then-operate pipeline
+5. `docs/system/internal_schema.md` — All data structures
+6. `docs/system/execution_layer.md` — Data acquisition, backtests, Paper Run
+7. `docs/output/v1_output_spec.md` — User-facing outputs and runtime
 
 ## Product truth
 

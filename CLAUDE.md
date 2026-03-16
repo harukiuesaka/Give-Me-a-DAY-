@@ -236,11 +236,13 @@ Do not be polite at the expense of clarity.
 
 Unless explicitly superseded, treat these files as the highest-priority product context:
 
-1. `docs/product/product_definition.md`
-2. `docs/product/v1_boundary.md`
-3. `docs/system/core_loop.md`
-4. `docs/system/internal_schema.md`
-5. `docs/claude/project_prompt.md`
+1. `docs/product/product_definition.md` — Product definition and promise
+2. `docs/product/v1_boundary.md` — v1 scope boundaries
+3. `docs/system/core_loop.md` — 12-step Core Loop specification
+4. `docs/system/internal_schema.md` — Internal data structures
+5. `docs/system/execution_layer.md` — Validation execution and Paper Run
+6. `docs/output/v1_output_spec.md` — Output specifications
+7. `docs/claude/project_prompt.md`
 
 If another file conflicts with these, prefer the files above.
 
