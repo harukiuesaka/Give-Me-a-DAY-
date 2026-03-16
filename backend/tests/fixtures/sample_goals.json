@@ -1,0 +1,27 @@
+[
+  {
+    "goal": "日本株で12ヶ月モメンタム戦略を検証したい",
+    "expected_domain": "investment_research",
+    "expected_archetype": "FACTOR"
+  },
+  {
+    "goal": "S&P500のバリューファクターに基づく投資戦略を検証したい",
+    "expected_domain": "investment_research",
+    "expected_archetype": "FACTOR"
+  },
+  {
+    "goal": "日経225とTOPIXの統計的裁定機会を検証したい",
+    "expected_domain": "investment_research",
+    "expected_archetype": "STAT_ARB"
+  },
+  {
+    "goal": "マクロ経済指標に基づく資産配分戦略を検証したい",
+    "expected_domain": "investment_research",
+    "expected_archetype": "MACRO"
+  },
+  {
+    "goal": "天気をよくしたい",
+    "expected_domain": null,
+    "expected_error": "DomainOutOfScopeError"
+  }
+]
