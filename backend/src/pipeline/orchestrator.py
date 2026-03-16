@@ -1,8 +1,10 @@
 """
 Pipeline orchestrator — sequences all pipeline modules.
 
-Currently implements Round 1: Goal Intake only.
-Remaining steps are stubbed with TODO markers.
+Round 1: Goal Intake only.
+Round 2: Goal Intake → DomainFramer → ResearchSpecCompiler
+         → CandidateGenerator → EvidencePlanner → ValidationPlanner
+Round 3+: Execution, Audit, Recommendation, Reporting (TODO).
 """
 
 import logging
@@ -34,40 +36,68 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
         # ---- Step 1: Goal Intake ----
         user_intent = process_goal_intake(run_id, request)
         store.save_run_object(run_id, "user_intent", user_intent)
-
-        audit_logger.append_event(AuditEvent(
-            event_id=f"evt_{uuid.uuid4().hex[:8]}",
-            timestamp=datetime.utcnow(),
-            run_id=run_id,
-            event_type="pipeline.step_completed",
-            module="goal_intake",
-            details={"step_name": "goal_intake", "output_entity_ids": [run_id]},
-        ))
-
+        _log_step(audit_logger, run_id, "goal_intake")
         _update_status(store, run_id, RunStatus.EXECUTING, "domain_framing", 1)
 
         # ---- Step 2: Domain Framing ----
-        # TODO: Round 2 — DomainFramer.frame(user_intent)
+        from src.pipeline.domain_framer import frame
+        domain_frame = frame(user_intent)
+        store.save_run_object(run_id, "domain_frame", domain_frame)
+        _log_step(audit_logger, run_id, "domain_framing")
+        _update_status(store, run_id, RunStatus.EXECUTING, "research_spec", 2)
 
         # ---- Step 3: Research Spec Compilation ----
-        # TODO: Round 2 — ResearchSpecCompiler.compile(user_intent, domain_frame)
+        from src.pipeline.research_spec_compiler import compile
+        research_spec = compile(user_intent, domain_frame)
+        store.save_run_object(run_id, "research_spec", research_spec)
+        _log_step(audit_logger, run_id, "research_spec")
+        _update_status(store, run_id, RunStatus.EXECUTING, "candidate_generation", 3)
 
         # ---- Step 4: Candidate Generation ----
-        # TODO: Round 2 — CandidateGenerator.generate(research_spec, domain_frame)
+        from src.pipeline.candidate_generator import generate
+        candidates = generate(research_spec, domain_frame)
+        for candidate in candidates:
+            store.save_candidate_object(
+                run_id, "candidates", candidate.candidate_id, candidate
+            )
+        _log_step(audit_logger, run_id, "candidate_generation",
+                  {"candidate_count": len(candidates)})
+        _update_status(store, run_id, RunStatus.EXECUTING, "evidence_planning", 4)
 
-        # ---- Step 5: Evidence Planning + Data Acquisition ----
-        # TODO: Round 2/3 — EvidencePlanner + ExecutionLayer.DataAcq
+        # ---- Step 5: Evidence Planning ----
+        from src.pipeline.evidence_planner import plan as plan_evidence
+        evidence_plans = []
+        for candidate in candidates:
+            ep = plan_evidence(research_spec, candidate)
+            store.save_candidate_object(
+                run_id, "evidence_plans", candidate.candidate_id, ep
+            )
+            evidence_plans.append(ep)
+        _log_step(audit_logger, run_id, "evidence_planning",
+                  {"plans_count": len(evidence_plans)})
+        _update_status(store, run_id, RunStatus.EXECUTING, "validation_planning", 5)
 
-        # ---- Step 6: Validation Planning + Execution ----
-        # TODO: Round 3 — ValidationPlanner + ExecutionLayer.ValidationExec
+        # ---- Step 6: Validation Planning ----
+        from src.pipeline.validation_planner import plan as plan_validation
+        validation_plans = []
+        for candidate, ep in zip(candidates, evidence_plans):
+            vp = plan_validation(research_spec, candidate, ep)
+            store.save_candidate_object(
+                run_id, "validation_plans", candidate.candidate_id, vp
+            )
+            validation_plans.append(vp)
+        _log_step(audit_logger, run_id, "validation_planning",
+                  {"plans_count": len(validation_plans)})
 
-        # ---- Step 7: Audit + Recommendation + Reporting ----
-        # TODO: Round 4/5 — AuditEngine + RecommendationEngine + ReportingEngine
+        # ---- Step 7: Execution + Audit + Recommendation + Reporting ----
+        # TODO: Round 3+ — ExecutionLayer, AuditEngine, RecommendationEngine, ReportingEngine
+        _update_status(store, run_id, RunStatus.COMPLETED, "validation_planning", 6)
 
-        # For Round 1: mark as completed after Goal Intake
-        _update_status(store, run_id, RunStatus.COMPLETED, "goal_intake", 1)
-
-        logger.info(f"Pipeline completed for run {run_id} (Round 1: Goal Intake only)")
+        logger.info(
+            f"Pipeline completed for run {run_id} "
+            f"(Round 2: Planning Intelligence — {len(candidates)} candidates, "
+            f"{len(validation_plans)} validation plans)"
+        )
         return run_id
 
     except Exception as e:
@@ -84,6 +114,23 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
 
         _update_status(store, run_id, RunStatus.FAILED, error=str(e))
         raise
+
+
+def _log_step(
+    audit_logger, run_id: str, step_name: str, extra: dict | None = None
+) -> None:
+    """Log a pipeline step completion event."""
+    details = {"step_name": step_name}
+    if extra:
+        details.update(extra)
+    audit_logger.append_event(AuditEvent(
+        event_id=f"evt_{uuid.uuid4().hex[:8]}",
+        timestamp=datetime.utcnow(),
+        run_id=run_id,
+        event_type="pipeline.step_completed",
+        module=step_name,
+        details=details,
+    ))
 
 
 def _update_status(

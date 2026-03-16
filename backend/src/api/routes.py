@@ -87,6 +87,37 @@ def get_run_status(run_id: str):
     return RunStatusResponse(**meta)
 
 
+@router.get("/runs/{run_id}/planning")
+def get_planning_result(run_id: str):
+    """Get planning pipeline results (Round 2: domain frame, spec, candidates, plans)."""
+    store = get_store()
+    if not store.run_exists(run_id):
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    meta = store.load_run_meta(run_id)
+    if meta.get("status") not in ("completed", "executing"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run status is '{meta.get('status')}', planning not available",
+        )
+
+    result: dict = {"run_id": run_id}
+
+    # Load each planning artifact if available
+    for key in ["user_intent", "domain_frame", "research_spec"]:
+        try:
+            result[key] = store.load_run_object(run_id, key)
+        except FileNotFoundError:
+            pass
+
+    # Load per-candidate objects
+    result["candidates"] = store.load_all_candidate_objects(run_id, "candidates")
+    result["evidence_plans"] = store.load_all_candidate_objects(run_id, "evidence_plans")
+    result["validation_plans"] = store.load_all_candidate_objects(run_id, "validation_plans")
+
+    return result
+
+
 @router.get("/runs/{run_id}/result")
 def get_run_result(run_id: str):
     """Get candidate presentation after pipeline completion."""
