@@ -4,7 +4,8 @@ Pipeline orchestrator — sequences all pipeline modules.
 Round 1: Goal Intake only.
 Round 2: Goal Intake → DomainFramer → ResearchSpecCompiler
          → CandidateGenerator → EvidencePlanner → ValidationPlanner
-Round 3+: Execution, Audit, Recommendation, Reporting (TODO).
+Round 2.5: + RecommendationEngine + PresentationBuilder
+Round 3+: Execution, Audit (TODO).
 """
 
 import logging
@@ -89,9 +90,35 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
         _log_step(audit_logger, run_id, "validation_planning",
                   {"plans_count": len(validation_plans)})
 
-        # ---- Step 7: Execution + Audit + Recommendation + Reporting ----
-        # TODO: Round 3+ — ExecutionLayer, AuditEngine, RecommendationEngine, ReportingEngine
-        _update_status(store, run_id, RunStatus.COMPLETED, "validation_planning", 6)
+        # ---- Step 7: Recommendation ----
+        _update_status(store, run_id, RunStatus.EXECUTING, "recommendation", 6)
+        from src.pipeline.recommendation_engine import build_recommendation
+        recommendation = build_recommendation(
+            run_id, research_spec, candidates, evidence_plans, validation_plans,
+        )
+        store.save_run_object(run_id, "recommendation", recommendation)
+        _log_step(audit_logger, run_id, "recommendation")
+
+        # ---- Step 8: Presentation ----
+        _update_status(store, run_id, RunStatus.EXECUTING, "presentation", 7)
+        from src.pipeline.presentation_builder import (
+            build_markdown_export,
+            build_presentation,
+        )
+        cards, context = build_presentation(recommendation, candidates)
+        store.save_presentation_list(run_id, "candidate_cards.json", cards)
+        store.save_presentation(run_id, "presentation_context.json", context)
+
+        # Markdown export
+        raw_goal = request.goal if hasattr(request, "goal") else ""
+        md_export = build_markdown_export(cards, context, raw_goal)
+        store.save_markdown_export(run_id, md_export)
+        _log_step(audit_logger, run_id, "presentation",
+                  {"cards_count": len(cards)})
+
+        # ---- Done (Round 2.5) ----
+        # TODO: Round 3+ — ExecutionLayer, AuditEngine
+        _update_status(store, run_id, RunStatus.COMPLETED, "presentation", 8)
 
         logger.info(
             f"Pipeline completed for run {run_id} "

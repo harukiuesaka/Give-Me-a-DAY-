@@ -1,7 +1,7 @@
 # Give Me a DAY v1 — Implementation Status
 
-**Last updated**: 2026-03-16
-**Current round**: Round 2 (Planning Intelligence) — COMPLETED
+**Last updated**: 2026-03-17
+**Current round**: Round 2.5 (Decision System Layer) — COMPLETED
 
 ---
 
@@ -41,6 +41,20 @@
 
 ---
 
+## Round 2.5: Decision System Layer — COMPLETED
+
+| Task | Status | Files |
+|------|--------|-------|
+| 2.5.1 RecommendationEngine | ✅ Done | `pipeline/recommendation_engine.py` — scoring (burden + coverage + risk balance + type bonus), ranking, confidence capped at MEDIUM |
+| 2.5.2 PresentationBuilder | ✅ Done | `pipeline/presentation_builder.py` — CandidateCards (exactly 2), PresentationContext, Markdown export |
+| 2.5.3 ApprovalController | ✅ Done | `pipeline/approval_controller.py` — triple-confirmation gate, candidate validation against recommendation |
+| 2.5.4 RuntimeController | ✅ Done | `pipeline/runtime_controller.py` — Paper Run state initialization (contract only, no execution) |
+| 2.5.5 Orchestrator update | ✅ Done | `pipeline/orchestrator.py` — Steps 7-8 (Recommendation → Presentation), 8-step pipeline |
+| 2.5.6 API wiring | ✅ Done | `api/routes.py` — real POST /approve with approval + Paper Run init, GET /result + GET /export work |
+| 2.5.7 Tests | ✅ Done | 36 new tests (92 total), all passing |
+
+---
+
 ## Round 3: Execution — NOT STARTED
 
 | Task | Status | Target |
@@ -53,13 +67,13 @@
 
 ---
 
-## Round 4: Judgment — NOT STARTED
+## Round 4: Judgment — PARTIALLY COMPLETE
 
 | Task | Status | Target |
 |------|--------|--------|
 | 4.1 AuditEngine | ❌ Not started | Apply audit rubric to test results |
-| 4.2 RecommendationEngine | ❌ Not started | Primary/runner-up/rejected with conditions |
-| 4.3 ReportingEngine | ❌ Not started | CandidateCards, PresentationContext, Markdown export |
+| 4.2 RecommendationEngine | ✅ Done (Round 2.5) | `pipeline/recommendation_engine.py` |
+| 4.3 ReportingEngine | ✅ Done (Round 2.5) | `pipeline/presentation_builder.py` |
 
 ---
 
@@ -75,21 +89,22 @@ All Paper Run modules are placeholder directories only.
 
 ---
 
-## What Works Now (Round 2)
+## What Works Now (Round 2.5)
 
 1. Backend starts: `uvicorn src.main:app`
 2. `GET /api/v1/health` returns 200
-3. `POST /api/v1/runs` accepts a goal and runs full planning pipeline
-4. `GET /api/v1/runs/{id}/status` returns run status with step progress
-5. `GET /api/v1/runs/{id}/planning` returns planning results (domain_frame, research_spec, candidates, evidence_plans, validation_plans)
-6. Pipeline runs GoalIntake → DomainFramer → ResearchSpecCompiler → CandidateGenerator → EvidencePlanner → ValidationPlanner
-7. LLM-unavailable fallback: all modules produce valid output using archetype-specific templates
-8. DomainFramer classifies archetype and generates testable claims with falsification conditions
-9. ResearchSpecCompiler derives evidence standard, assumption space, and disqualifying failures
-10. CandidateGenerator produces 3 candidates (baseline/conservative/exploratory) with diversity enforcement
-11. EvidencePlanner identifies required/optional/proxy evidence with LKG-07 leakage rules
-12. ValidationPlanner creates 4-5 test plans with failure conditions and prerequisites
-13. All 56 tests pass
+3. `POST /api/v1/runs` accepts a goal and runs full 8-step pipeline
+4. `GET /api/v1/runs/{id}/status` returns run status with step progress (8 steps)
+5. `GET /api/v1/runs/{id}/planning` returns planning results
+6. `GET /api/v1/runs/{id}/result` returns CandidateCards + PresentationContext
+7. `GET /api/v1/runs/{id}/export` returns Markdown recommendation package
+8. `POST /api/v1/runs/{id}/approve` creates real Approval + initializes Paper Run
+9. Pipeline: GoalIntake → DomainFramer → ResearchSpecCompiler → CandidateGenerator → EvidencePlanner → ValidationPlanner → RecommendationEngine → PresentationBuilder
+10. RecommendationEngine: scoring (burden + coverage + risk balance + type), confidence capped at MEDIUM
+11. PresentationBuilder: exactly 2 CandidateCards (Primary + Alternative), Markdown export
+12. ApprovalController: triple-confirmation gate (risks_reviewed, stop_conditions_reviewed, paper_run_understood)
+13. RuntimeController: Paper Run state initialization with schedule (no execution)
+14. All 92 tests pass
 
 ## What Does NOT Work Yet
 
@@ -97,12 +112,9 @@ All Paper Run modules are placeholder directories only.
 - No data acquisition (price data, factor data)
 - No backtest execution
 - No statistical tests
-- No audit or recommendation logic
-- No CandidateCard generation
-- No Paper Run
+- No audit engine (full realization)
+- No Paper Run execution (state initialized but no daily cycles)
 - Frontend pages beyond InputPage are visual stubs only
-- Approval endpoint creates IDs but does not create real Approval/PaperRunState objects
-- GET /runs/{id}/result still expects presentation objects (Round 4+)
 
 ---
 
@@ -110,10 +122,10 @@ All Paper Run modules are placeholder directories only.
 
 | File | What's Stubbed | Round Target |
 |------|---------------|-------------|
-| `pipeline/orchestrator.py` | Steps 7+ (Execution/Audit/Recommendation/Reporting) | Round 3-5 |
-| `api/routes.py` GET /result | Expects presentation objects not yet generated | Round 4 |
-| `api/routes.py` POST /approve | Returns placeholder IDs, no real Approval | Round 5 |
-| `api/routes.py` paper-run endpoints | Return placeholder data | Round 6 |
+| `api/routes.py` paper-run endpoints | Return placeholder data, no actual execution | Round 3+ |
+| `api/routes.py` POST /paper-runs/{id}/stop | Returns halted status only | Round 3+ |
+| `api/routes.py` POST /paper-runs/{id}/re-approve | Returns placeholder IDs | Round 3+ |
+| `pipeline/runtime_controller.py` | State initialization only, no daily cycles | Round 3+ |
 
 ---
 
@@ -137,7 +149,7 @@ All Paper Run modules are placeholder directories only.
 - ❌ No "build any app" language in code or comments
 - ❌ No v2 features implemented
 - ❌ No source of truth documents modified
-- ❌ No execution/audit/recommendation implemented (correctly deferred to Round 3+)
+- ❌ No execution engine implemented (correctly deferred to Round 3+)
 - ✅ All fallbacks are investment-research specific (not generic)
 - ✅ All prompts are investment-research specific (not generic)
 - ✅ Rejection logic is structural: failure conditions on every test, falsification on every claim

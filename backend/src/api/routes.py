@@ -165,25 +165,73 @@ def get_run_export(run_id: str):
 def approve_run(run_id: str, request: ApproveRequest):
     """Approve a candidate and start Paper Run."""
     store = get_store()
+    audit_logger = get_audit_logger()
+
     if not store.run_exists(run_id):
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Validate all confirmations are true
-    required_keys = ["risks_reviewed", "stop_conditions_reviewed", "paper_run_understood"]
-    for key in required_keys:
-        if not request.user_confirmations.get(key, False):
-            raise HTTPException(
-                status_code=400, detail=f"Confirmation '{key}' must be true"
-            )
+    # Load recommendation (must exist before approval)
+    try:
+        rec_data = store.load_run_object(run_id, "recommendation")
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=409,
+            detail="Recommendation not yet available. Pipeline must complete first.",
+        )
 
-    # TODO: Round 2+ — Create Approval object, initialize PaperRunState, register scheduler
-    approval_id = f"{run_id}_AP"
-    paper_run_id = f"pr_{uuid.uuid4().hex[:8]}"
+    from src.domain.models import Recommendation
+    recommendation = Recommendation(**rec_data)
+
+    # Validate confirmations
+    from src.pipeline.approval_controller import (
+        ApprovalError,
+        create_approval,
+        validate_confirmations,
+    )
+
+    try:
+        confirmations = validate_confirmations(request.user_confirmations)
+    except ApprovalError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Create approval
+    try:
+        approval = create_approval(
+            run_id=run_id,
+            candidate_id=request.candidate_id,
+            confirmations=confirmations,
+            recommendation=recommendation,
+            virtual_capital=request.virtual_capital,
+        )
+    except ApprovalError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    store.save_approval(run_id, approval)
+
+    # Initialize Paper Run
+    from src.pipeline.runtime_controller import initialize_paper_run
+
+    paper_run_state = initialize_paper_run(approval)
+    store.save_paper_run_state(paper_run_state.paper_run_id, paper_run_state)
+
+    # Audit log
+    audit_logger.append_event(AuditEvent(
+        event_id=f"evt_{uuid.uuid4().hex[:8]}",
+        timestamp=datetime.utcnow(),
+        run_id=run_id,
+        event_type="approval.created",
+        module="approval_controller",
+        details={
+            "approval_id": approval.approval_id,
+            "candidate_id": approval.candidate_id,
+            "paper_run_id": paper_run_state.paper_run_id,
+        },
+    ))
 
     return ApproveResponse(
-        approval_id=approval_id,
-        paper_run_id=paper_run_id,
-        status_url=f"/api/v1/paper-runs/{paper_run_id}",
+        approval_id=approval.approval_id,
+        paper_run_id=paper_run_state.paper_run_id,
+        status_url=f"/api/v1/paper-runs/{paper_run_state.paper_run_id}",
     )
 
 
