@@ -5,7 +5,7 @@ Round 1: Goal Intake only.
 Round 2: Goal Intake → DomainFramer → ResearchSpecCompiler
          → CandidateGenerator → EvidencePlanner → ValidationPlanner
 Round 2.5: + RecommendationEngine + PresentationBuilder
-Round 3+: Execution, Audit (TODO).
+Round 3: + DataAcquisition + Backtest + StatisticalTests + Comparison
 """
 
 import logging
@@ -90,8 +90,101 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
         _log_step(audit_logger, run_id, "validation_planning",
                   {"plans_count": len(validation_plans)})
 
-        # ---- Step 7: Recommendation ----
-        _update_status(store, run_id, RunStatus.EXECUTING, "recommendation", 6)
+        # ---- Step 7: Data Acquisition ----
+        _update_status(store, run_id, RunStatus.EXECUTING, "data_acquisition", 6)
+        test_results = {}
+        comparison_result = None
+        execution_succeeded = False
+
+        try:
+            from src.execution.data_acquisition import (
+                check_data_quality,
+                fetch_daily_ohlcv,
+                get_universe,
+            )
+
+            archetype = domain_frame.archetype.value
+            tickers = get_universe(archetype)
+            price_data = fetch_daily_ohlcv(tickers, "2019-01-01", "2024-12-31")
+
+            # Quality check per ticker
+            quality_reports = []
+            for ticker, df in price_data.items():
+                qr = check_data_quality(df, f"ev_{ticker}", "yfinance")
+                quality_reports.append(qr)
+                store.save_candidate_object(
+                    run_id, "quality_reports", ticker.replace(".", "_"), qr
+                )
+            store.save_evidence_data(run_id, "price_matrix",
+                                     next(iter(price_data.values())))
+            _log_step(audit_logger, run_id, "data_acquisition",
+                      {"tickers": len(tickers), "quality_reports": len(quality_reports)})
+
+            # ---- Step 8: Backtest Execution ----
+            _update_status(store, run_id, RunStatus.EXECUTING, "backtest", 7)
+            from src.execution.backtest_engine import run_backtest
+
+            for candidate in candidates:
+                tr = run_backtest(candidate, price_data,
+                                 test_id=f"bt_{candidate.candidate_id}")
+                test_results[candidate.candidate_id] = tr
+                store.save_candidate_object(
+                    run_id, "test_results", candidate.candidate_id, tr
+                )
+            _log_step(audit_logger, run_id, "backtest",
+                      {"results_count": len(test_results)})
+
+            # ---- Step 9: Statistical Tests ----
+            _update_status(store, run_id, RunStatus.EXECUTING, "statistical_tests", 8)
+            from src.execution.statistical_tests import (
+                run_oos_comparison,
+                run_return_ttest,
+                run_sharpe_significance,
+            )
+            import numpy as np
+
+            for cid, tr in test_results.items():
+                if tr.return_timeseries and tr.return_timeseries.net_returns:
+                    rets = np.array(tr.return_timeseries.net_returns)
+                    ttest = run_return_ttest(rets, cid, f"ttest_{cid}")
+                    store.save_candidate_object(
+                        run_id, "stat_tests", f"{cid}_ttest", ttest
+                    )
+                    sharpe_test = run_sharpe_significance(rets, cid, f"sharpe_{cid}")
+                    store.save_candidate_object(
+                        run_id, "stat_tests", f"{cid}_sharpe", sharpe_test
+                    )
+                    oos = run_oos_comparison(rets, cid, test_id=f"oos_{cid}")
+                    store.save_candidate_object(
+                        run_id, "stat_tests", f"{cid}_oos", oos
+                    )
+            _log_step(audit_logger, run_id, "statistical_tests")
+
+            # ---- Step 10: Comparison ----
+            _update_status(store, run_id, RunStatus.EXECUTING, "comparison", 9)
+            from src.execution.comparison_engine import compare_candidates
+
+            baseline_id = next(
+                (c.candidate_id for c in candidates
+                 if c.candidate_type.value == "baseline"), candidates[0].candidate_id
+            )
+            comparison_result = compare_candidates(
+                run_id, test_results, baseline_id
+            )
+            store.save_run_object(run_id, "comparison_result", comparison_result)
+            _log_step(audit_logger, run_id, "comparison")
+            execution_succeeded = True
+
+        except Exception as exec_err:
+            logger.warning(
+                f"Execution layer failed for run {run_id}, "
+                f"falling back to planning-only mode: {exec_err}"
+            )
+            _log_step(audit_logger, run_id, "execution_fallback",
+                      {"error": str(exec_err)})
+
+        # ---- Step 11: Recommendation ----
+        _update_status(store, run_id, RunStatus.EXECUTING, "recommendation", 10)
         from src.pipeline.recommendation_engine import build_recommendation
         recommendation = build_recommendation(
             run_id, research_spec, candidates, evidence_plans, validation_plans,
@@ -99,8 +192,8 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
         store.save_run_object(run_id, "recommendation", recommendation)
         _log_step(audit_logger, run_id, "recommendation")
 
-        # ---- Step 8: Presentation ----
-        _update_status(store, run_id, RunStatus.EXECUTING, "presentation", 7)
+        # ---- Step 12: Presentation ----
+        _update_status(store, run_id, RunStatus.EXECUTING, "presentation", 11)
         from src.pipeline.presentation_builder import (
             build_markdown_export,
             build_presentation,
@@ -116,14 +209,13 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
         _log_step(audit_logger, run_id, "presentation",
                   {"cards_count": len(cards)})
 
-        # ---- Done (Round 2.5) ----
-        # TODO: Round 3+ — ExecutionLayer, AuditEngine
-        _update_status(store, run_id, RunStatus.COMPLETED, "presentation", 8)
+        # ---- Done (Round 3) ----
+        _update_status(store, run_id, RunStatus.COMPLETED, "presentation", 12)
 
         logger.info(
             f"Pipeline completed for run {run_id} "
-            f"(Round 2: Planning Intelligence — {len(candidates)} candidates, "
-            f"{len(validation_plans)} validation plans)"
+            f"(Round 3: Execution — {len(candidates)} candidates, "
+            f"execution={'succeeded' if execution_succeeded else 'fallback'})"
         )
         return run_id
 

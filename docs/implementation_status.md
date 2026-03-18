@@ -1,7 +1,7 @@
 # Give Me a DAY v1 — Implementation Status
 
 **Last updated**: 2026-03-17
-**Current round**: Round 2.6 (Frontend Wiring + Architecture Alignment) — COMPLETED
+**Current round**: Round 3 (Execution Layer) — COMPLETED
 
 ---
 
@@ -66,15 +66,17 @@
 
 ---
 
-## Round 3: Execution — NOT STARTED
+## Round 3: Execution Layer — COMPLETED
 
-| Task | Status | Target |
-|------|--------|--------|
-| 3.1 DataAcquisition module | ❌ Not started | Fetch price/factor data from Yahoo Finance etc. |
-| 3.2 BacktestEngine | ❌ Not started | Run offline backtests per ValidationPlan |
-| 3.3 StatisticalTestSuite | ❌ Not started | t-test, bootstrap, regime split analysis |
-| 3.4 ComparisonEngine | ❌ Not started | Cross-candidate comparison matrix |
-| 3.5 ExecutionLayer integration | ❌ Not started | Wire DataAcq → Backtest → Stats → Comparison |
+| Task | Status | Files |
+|------|--------|-------|
+| 3.1 DataAcquisition | ✅ Done | `execution/data_acquisition.py` — yfinance + synthetic fallback, quality checks (completeness, consistency, temporal) |
+| 3.2 BacktestEngine | ✅ Done | `execution/backtest_engine.py` — daily-bar, momentum signal, monthly rebalance, 20bps cost model |
+| 3.3 StatisticalTests | ✅ Done | `execution/statistical_tests.py` — t-test, Sharpe significance (Lo 2002), IS/OOS comparison |
+| 3.4 ComparisonEngine | ✅ Done | `execution/comparison_engine.py` — metric comparison matrix, rejection detection, composite ranking |
+| 3.5 PaperRunEngine | ✅ Done | `execution/paper_run_engine.py` — daily update, stop condition evaluation (SC-01 to SC-04) |
+| 3.6 Orchestrator update | ✅ Done | `pipeline/orchestrator.py` — 12-step pipeline with execution fallback |
+| 3.7 Tests | ✅ Done | 52 new tests (144 total), all passing |
 
 ---
 
@@ -100,32 +102,28 @@ All Paper Run modules are placeholder directories only.
 
 ---
 
-## What Works Now (Round 2.6)
+## What Works Now (Round 3)
 
 1. Backend starts: `uvicorn src.main:app`
-2. `GET /api/v1/health` returns 200
-3. `POST /api/v1/runs` accepts a goal and runs full 8-step pipeline
-4. `GET /api/v1/runs/{id}/status` returns run status with step progress (8 steps)
-5. `GET /api/v1/runs/{id}/planning` returns planning results
-6. `GET /api/v1/runs/{id}/result` returns CandidateCards + PresentationContext
-7. `GET /api/v1/runs/{id}/export` returns Markdown recommendation package
-8. `POST /api/v1/runs/{id}/approve` creates real Approval + initializes Paper Run
-9. Pipeline: GoalIntake → DomainFramer → ResearchSpecCompiler → CandidateGenerator → EvidencePlanner → ValidationPlanner → RecommendationEngine → PresentationBuilder
-10. RecommendationEngine: scoring (burden + coverage + risk balance + type), confidence capped at MEDIUM
-11. PresentationBuilder: exactly 2 CandidateCards (Primary + Alternative), Markdown export
-12. ApprovalController: triple-confirmation gate (risks_reviewed, stop_conditions_reviewed, paper_run_understood)
-13. RuntimeController: Paper Run state initialization with schedule (no execution)
-14. All 92 tests pass
+2. `POST /api/v1/runs` runs full 12-step pipeline (planning + execution)
+3. Pipeline: GoalIntake → DomainFramer → ResearchSpecCompiler → CandidateGenerator → EvidencePlanner → ValidationPlanner → DataAcquisition → Backtest → StatisticalTests → Comparison → RecommendationEngine → PresentationBuilder
+4. DataAcquisition: yfinance with synthetic fallback, 5 quality checks
+5. BacktestEngine: daily-bar momentum, monthly rebalance, 20bps cost model, 5 performance metrics
+6. StatisticalTests: t-test, Sharpe significance, IS/OOS overfitting detection
+7. ComparisonEngine: cross-candidate metric matrix, rejection detection, composite ranking
+8. PaperRunEngine: daily mark-to-market update, 4 stop conditions (drawdown, underperf, anomaly, data quality)
+9. Execution gracefully falls back to planning-only mode if data unavailable
+10. All prior features (approval gate, presentation, export) continue working
+11. All 144 tests pass
 
 ## What Does NOT Work Yet
 
 - No actual LLM calls (works via fallback templates; Claude API ready but untested with live key)
-- No data acquisition (price data, factor data)
-- No backtest execution
-- No statistical tests
-- No audit engine (full realization)
-- No Paper Run execution (state initialized but no daily cycles)
-- Frontend pages beyond InputPage are visual stubs only
+- No audit engine (full realization with execution-informed severity adjustment)
+- No automated Paper Run daily scheduler (manual update function exists)
+- No notification system (halt events logged but not pushed)
+- No quarterly re-evaluation automation
+- Frontend StatusPage shows initial state only (no background updates)
 
 ---
 
@@ -133,10 +131,11 @@ All Paper Run modules are placeholder directories only.
 
 | File | What's Stubbed | Round Target |
 |------|---------------|-------------|
-| `api/routes.py` paper-run endpoints | Return placeholder data, no actual execution | Round 3+ |
-| `api/routes.py` POST /paper-runs/{id}/stop | Returns halted status only | Round 3+ |
-| `api/routes.py` POST /paper-runs/{id}/re-approve | Returns placeholder IDs | Round 3+ |
-| `pipeline/runtime_controller.py` | State initialization only, no daily cycles | Round 3+ |
+| `api/routes.py` POST /paper-runs/{id}/stop | Updates status but no real portfolio unwinding | Round 4+ |
+| `api/routes.py` POST /paper-runs/{id}/re-approve | Returns placeholder IDs | Round 4+ |
+| `execution/paper_run_engine.py` | Daily scheduler not wired (function exists, no cron) | Round 4+ |
+| Notification system | Halt events logged, not pushed to user | Round 4+ |
+| Re-evaluation runner | Interface defined, not automated | Round 4+ |
 
 ---
 

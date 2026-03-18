@@ -981,6 +981,6 @@ class RunMeta(BaseModel):
     status: RunStatus = RunStatus.PENDING
     current_step: str = ""
     steps_completed: int = 0
-    steps_total: int = 8
+    steps_total: int = 12
     estimated_remaining_seconds: Optional[int] = None
     error: Optional[str] = None
