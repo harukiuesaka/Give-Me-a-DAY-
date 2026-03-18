@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     FRED_API_KEY: str = ""
     BACKTEST_TIMEOUT_SECONDS: int = 300
     PIPELINE_TIMEOUT_SECONDS: int = 700
+    RUNTIME_RUNNER_INTERVAL_SECONDS: int = 60
     PAPER_RUN_SCHEDULE_HOUR: int = 16  # JST market close + 1hr
     DEFAULT_VIRTUAL_CAPITAL: int = 1_000_000
     DEFAULT_COMMISSION_BPS: int = 10

@@ -17,7 +17,7 @@ from datetime import datetime
 
 from src.domain.models import (
     Approval,
-    Candidate,
+    PaperRunState,
     Recommendation,
     RuntimeConfig,
     UserConfirmations,
@@ -96,3 +96,82 @@ def create_approval(
             "実取引への移行（v1.5）",
         ],
     )
+
+
+def create_reapproval(
+    paper_run_state: PaperRunState,
+    confirmations: UserConfirmations,
+    candidate_id: str,
+) -> Approval:
+    """
+    Create a new Approval object to resume an existing Paper Run.
+
+    Re-approval is only valid for the same candidate already attached to the Paper Run.
+    """
+    if candidate_id != paper_run_state.candidate_id:
+        raise ApprovalError(
+            f"候補 '{candidate_id}' はこの Paper Run の候補ではありません。"
+            f"再承認可能な候補: {paper_run_state.candidate_id}"
+        )
+
+    run_id = extract_run_id_from_approval_id(paper_run_state.approval_id)
+    if not run_id:
+        raise ApprovalError("元の承認情報から run_id を特定できません。")
+
+    return Approval(
+        approval_id=f"{run_id}_AP_{uuid.uuid4().hex[:6]}",
+        run_id=run_id,
+        candidate_id=paper_run_state.candidate_id,
+        approved_at=datetime.utcnow(),
+        user_confirmations=confirmations,
+        runtime_config=RuntimeConfig(
+            initial_virtual_capital=paper_run_state.current_snapshot.virtual_capital_initial,
+        ),
+        re_approval_required=[
+            "再評価により候補変更が推奨された場合",
+            "停止条件に到達し運用が停止した後の再開",
+            "実取引への移行（v1.5）",
+        ],
+    )
+
+
+def create_changed_candidate_reapproval(
+    paper_run_state: PaperRunState,
+    confirmations: UserConfirmations,
+    candidate_id: str,
+) -> Approval:
+    """
+    Create a new Approval object for a re-evaluating Paper Run that will switch candidates.
+
+    The candidate must differ from the currently running candidate.
+    """
+    if candidate_id == paper_run_state.candidate_id:
+        raise ApprovalError(
+            "候補変更の再承認では、現在と異なる候補を指定する必要があります。"
+        )
+
+    run_id = extract_run_id_from_approval_id(paper_run_state.approval_id)
+    if not run_id:
+        raise ApprovalError("元の承認情報から run_id を特定できません。")
+
+    return Approval(
+        approval_id=f"{run_id}_AP_{uuid.uuid4().hex[:6]}",
+        run_id=run_id,
+        candidate_id=candidate_id,
+        approved_at=datetime.utcnow(),
+        user_confirmations=confirmations,
+        runtime_config=RuntimeConfig(
+            initial_virtual_capital=paper_run_state.current_snapshot.virtual_capital_initial,
+        ),
+        re_approval_required=[
+            "再評価により候補変更が推奨された場合",
+            "停止条件に到達し運用が停止した後の再開",
+            "実取引への移行（v1.5）",
+        ],
+    )
+
+
+def extract_run_id_from_approval_id(approval_id: str) -> str | None:
+    if "_AP_" not in approval_id:
+        return None
+    return approval_id.rsplit("_AP_", 1)[0]

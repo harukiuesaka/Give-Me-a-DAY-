@@ -1,6 +1,8 @@
 """Tests for PresentationBuilder module (Round 2.5)."""
 
 from src.domain.models import (
+    Audit,
+    AuditStatus,
     Candidate,
     CandidateAssumption,
     CandidateCard,
@@ -63,6 +65,22 @@ def _make_candidate(cid: str, ctype: CandidateType) -> Candidate:
     )
 
 
+def _make_audit(
+    cid: str,
+    *,
+    status: AuditStatus = AuditStatus.PASSED_WITH_WARNINGS,
+    residual_risks: list[str] | None = None,
+    rejection_reason: str | None = None,
+) -> Audit:
+    return Audit(
+        candidate_id=cid,
+        audit_status=status,
+        residual_risks=residual_risks or ["監査リスク1", "監査リスク2"],
+        surviving_assumptions=["前提"] if status != AuditStatus.REJECTED else [],
+        rejection_reason=rejection_reason,
+    )
+
+
 class TestBuildPresentation:
     def test_returns_exactly_2_cards(self):
         rec = _make_recommendation()
@@ -120,6 +138,117 @@ class TestBuildPresentation:
         cards, _ = build_presentation(rec, candidates)
         for card in cards:
             assert "バックテスト未実施" in card.expected_return_band.disclaimer
+
+    def test_key_risks_prefer_audit_residual_risks(self):
+        rec = _make_recommendation()
+        candidates = [
+            _make_candidate("C01", CandidateType.BASELINE),
+            _make_candidate("C02", CandidateType.CONSERVATIVE),
+        ]
+        audits = [
+            _make_audit("C01", residual_risks=["監査由来リスク1", "監査由来リスク2"]),
+            _make_audit("C02", residual_risks=["監査由来リスク3", "監査由来リスク4"]),
+        ]
+
+        cards, _ = build_presentation(rec, candidates, audits=audits)
+        assert cards[0].key_risks[0].startswith("監査由来")
+
+    def test_rejection_headline_prefers_audit_reason(self):
+        rec = _make_recommendation()
+        candidates = [
+            _make_candidate("C01", CandidateType.BASELINE),
+            _make_candidate("C02", CandidateType.CONSERVATIVE),
+            _make_candidate("C03", CandidateType.EXPLORATORY),
+        ]
+        audits = [
+            _make_audit("C01", status=AuditStatus.PASSED),
+            _make_audit("C02", status=AuditStatus.PASSED_WITH_WARNINGS),
+            _make_audit(
+                "C03",
+                status=AuditStatus.REJECTED,
+                rejection_reason="C03 はブロッキングなエビデンス不足で棄却されました。追加データが必要です。",
+            ),
+        ]
+
+        _, context = build_presentation(rec, candidates, audits=audits)
+        assert context.rejection_headline is not None
+        assert "エビデンス不足" in context.rejection_headline
+
+    def test_zero_survivor_path_returns_no_cards_without_crash(self):
+        rec = Recommendation(
+            run_id="run_pres_test",
+            best_candidate_id=None,
+            runner_up_candidate_id=None,
+            rejected_candidate_ids=["C01", "C02"],
+            ranking_logic=[
+                RankingLogicItem(comparison_axis=f"axis{i}", best_assessment="b", runner_up_assessment="r", verdict="v")
+                for i in range(3)
+            ],
+            open_unknowns=[
+                OpenUnknown(
+                    unknown_id="OU-01",
+                    description="d",
+                    impact_if_resolved_positively="p",
+                    impact_if_resolved_negatively="n",
+                    resolution_method="m",
+                )
+            ],
+            critical_conditions=[
+                CriticalCondition(
+                    condition_id="CC-01",
+                    statement="s",
+                    verification_method="v",
+                    verification_timing="t",
+                    source="s",
+                )
+            ],
+            confidence_label=ConfidenceLabel.LOW,
+            confidence_explanation="説明",
+            recommendation_expiry=RecommendationExpiry(type=ExpiryType.TIME_BASED, description="3ヶ月後"),
+        )
+        candidates = [
+            _make_candidate("C01", CandidateType.BASELINE),
+            _make_candidate("C02", CandidateType.CONSERVATIVE),
+        ]
+        audits = [
+            _make_audit(
+                "C01",
+                status=AuditStatus.REJECTED,
+                rejection_reason="C01 は Paper Run only の境界を超える運用を前提としているため棄却されました。",
+            ),
+            _make_audit(
+                "C02",
+                status=AuditStatus.REJECTED,
+                rejection_reason="C02 は将来情報に依存する疑いが強いため棄却されました。",
+            ),
+        ]
+
+        cards, context = build_presentation(rec, candidates, audits=audits)
+        assert cards == []
+        assert context.candidates_presented == 0
+        assert context.rejection_headline is not None
+        assert "Paper Run" in context.rejection_headline
+
+    def test_overfitting_rejection_reason_can_surface_in_headline(self):
+        rec = _make_recommendation()
+        candidates = [
+            _make_candidate("C01", CandidateType.BASELINE),
+            _make_candidate("C02", CandidateType.CONSERVATIVE),
+            _make_candidate("C03", CandidateType.EXPLORATORY),
+        ]
+        audits = [
+            _make_audit("C01", status=AuditStatus.PASSED),
+            _make_audit("C02", status=AuditStatus.PASSED_WITH_WARNINGS),
+            _make_audit(
+                "C03",
+                status=AuditStatus.REJECTED,
+                rejection_reason="C03 は OOS で性能が崩れており過学習リスクが高いため棄却されました。再検証が必要です。",
+            ),
+        ]
+
+        _, context = build_presentation(rec, candidates, audits=audits)
+        assert context.rejection_headline is not None
+        assert "OOS" in context.rejection_headline
 
 
 class TestMarkdownExport:

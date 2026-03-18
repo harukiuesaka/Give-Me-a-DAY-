@@ -9,7 +9,7 @@ v1 delivers the full validate-then-operate sequence — from goal input to auton
 **Narrow, deep, end-to-end.**
 
 - **Narrow**: Investment strategies only. Japanese and US equities. Daily frequency. Public data sources. Single strategy at a time.
-- **Deep**: Real backtests on real data. Real statistical tests. Real audit with 10 categories and 48 patterns. Real stop conditions that actually halt the system.
+- **Deep**: Real backtests on real data. Real statistical tests. Real deterministic audit with core categories for evidence gaps, leakage, realism, assumptions, overfitting, complexity, and execution-based disqualification. Real stop conditions that actually halt the system.
 - **End-to-end**: The user types a goal and, after approval, has a strategy running in simulation. No code to write. No backtests to read. No infrastructure to build. No monitoring dashboard to watch.
 
 If a feature makes the product broader but shallower, it stays out.
@@ -32,7 +32,7 @@ If a feature skips validation for faster operation, it stays out.
 | Backtest execution | Run vectorized backtests on daily data. Max 20 years, max 500 instruments |
 | Statistical testing | t-tests, bootstrap, multiple testing correction, ADF, cointegration |
 | Candidate comparison | Compare candidates across 6 axes. Generate ranking with statistical significance tests |
-| Audit / rejection | 10-category audit rubric with 48 issue patterns. Compound pattern detection. Automatic disqualification logic |
+| Audit / rejection | Deterministic audit and rejection with core categories for evidence gaps, leakage, realism, assumptions, overfitting, complexity, and execution-based disqualification |
 | Recommendation generation | Select Primary and Alternative from surviving candidates. Set confidence level mechanically |
 | Re-evaluation trigger definition | Define stop conditions, re-evaluation schedule, re-approval conditions |
 
@@ -62,20 +62,22 @@ If a feature skips validation for faster operation, it stays out.
 | Cost model | Commission 10bps + spread 10bps (v1 fixed) |
 | Execution timing | T+1 open (v1 fixed) |
 | Stop conditions (system-defined, not user-configurable in v1) | Max drawdown -20%, 3-month consecutive underperformance vs benchmark, anomaly detection (signal 3σ deviation), data quality failure (3 consecutive days) |
-| Stop behavior | Automatic halt + user notification. Resume requires re-approval |
+| Stop behavior | Automatic halt + status-visible lifecycle event. Resume requires re-approval |
 | Monthly report | Auto-generated. Natural language + key numbers |
 | Quarterly re-evaluation | Core Loop Steps 5–8 re-executed with fresh data |
 
-### Notifications (v1 in scope)
+### Lifecycle visibility (status/API in current code; push/email pending)
+
+The shipped code currently surfaces lifecycle events and attention summaries through the Paper Run status API/status page. Push/email delivery remains a future step.
 
 | Trigger | Urgency | Channel |
 |---------|---------|---------|
-| Monthly report ready | Normal | Push + Email |
-| Stop condition approaching (drawdown > -15%) | High | Push + Email |
-| Stop condition hit (automatic halt) | Urgent | Push + Email |
-| Quarterly re-evaluation complete (no change) | Normal | Push + Email |
-| Quarterly re-evaluation (change recommended) | High | Push + Email |
-| Anomaly detected (automatic pause) | Urgent | Push + Email |
+| Monthly report ready | Normal | Status/API surface |
+| Stop condition approaching (drawdown > -15%) | High | Status/API surface |
+| Stop condition hit (automatic halt) | Urgent | Status/API surface |
+| Quarterly re-evaluation complete (no change) | Normal | Status/API surface |
+| Quarterly re-evaluation (change recommended) | High | Status/API surface |
+| Anomaly detected (automatic pause) | Urgent | Status/API surface |
 
 ## v1 out of scope
 

@@ -16,6 +16,7 @@ from src.api.schemas import (
     ApproveResponse,
     CreateRunRequest,
     CreateRunResponse,
+    PaperRunAlertSummary,
     PaperRunStatusResponse,
     PreflightRequest,
     PreflightSubmitRequest,
@@ -339,6 +340,11 @@ def approve_run(run_id: str, request: ApproveRequest):
 
     paper_run_state = initialize_paper_run(approval)
     store.save_paper_run_state(paper_run_state.paper_run_id, paper_run_state)
+    store.save_paper_run_snapshot(
+        paper_run_state.paper_run_id,
+        paper_run_state.started_at.date().isoformat(),
+        paper_run_state.current_snapshot,
+    )
 
     # Audit log
     audit_logger.append_event(AuditEvent(
@@ -370,19 +376,48 @@ def get_paper_run_status(pr_id: str):
     if not store.paper_run_exists(pr_id):
         raise HTTPException(status_code=404, detail="Paper Run not found")
 
-    state = store.load_paper_run_state(pr_id)
-    snapshot = state.get("current_snapshot", {})
-    safety = state.get("safety_status", {})
-    schedule = state.get("schedule", {})
+    from src.domain.models import ReEvaluationOutcome
+    from src.pipeline.runtime_controller import (
+        get_latest_re_evaluation_result,
+        get_paper_run_alert_summary,
+        get_recent_lifecycle_events,
+        get_runtime_health,
+        reconcile_paper_run,
+    )
+
+    state = reconcile_paper_run(store, pr_id)
+    snapshot = state.current_snapshot
+    safety = state.safety_status
+    schedule = state.schedule
+    runtime_health = get_runtime_health(store)
+    events = get_recent_lifecycle_events(store, pr_id)
+    latest_re_evaluation = get_latest_re_evaluation_result(store, pr_id)
+    alert_summary = get_paper_run_alert_summary(store, pr_id, state=state)
+    pending_candidate_id = None
+    re_evaluation_note = None
+
+    if (
+        state.status.value == "re_evaluating"
+        and latest_re_evaluation is not None
+        and latest_re_evaluation.outcome == ReEvaluationOutcome.CHANGE_CANDIDATE
+    ):
+        pending_candidate_id = latest_re_evaluation.new_best_candidate_id
+        re_evaluation_note = latest_re_evaluation.explanation
 
     return PaperRunStatusResponse(
-        status=state.get("status", "unknown"),
-        day_count=snapshot.get("day_count", 0),
-        current_value=snapshot.get("virtual_capital_current", 0.0),
-        total_return_pct=snapshot.get("total_return_pct", 0.0),
-        safety_status="breached" if safety.get("any_breached") else "all_clear",
-        next_report=schedule.get("next_monthly_report"),
-        next_re_eval=schedule.get("next_quarterly_re_evaluation"),
+        status=state.status.value,
+        candidate_id=state.candidate_id,
+        pending_candidate_id=pending_candidate_id,
+        re_evaluation_note=re_evaluation_note,
+        runtime_health=runtime_health,
+        alert_summary=PaperRunAlertSummary(**alert_summary),
+        events=events,
+        day_count=snapshot.day_count,
+        current_value=snapshot.virtual_capital_current,
+        total_return_pct=snapshot.total_return_pct,
+        safety_status="breached" if safety.any_breached else "all_clear",
+        next_report=schedule.next_monthly_report,
+        next_re_eval=schedule.next_quarterly_re_evaluation,
     )
 
 
@@ -393,20 +428,92 @@ def stop_paper_run(pr_id: str):
     if not store.paper_run_exists(pr_id):
         raise HTTPException(status_code=404, detail="Paper Run not found")
 
-    # TODO: Round 6 — Update PaperRunState to halted, record in halt_history
-    return StopResponse(status="halted")
+    from src.pipeline.runtime_controller import halt_paper_run
+
+    state = halt_paper_run(store, pr_id)
+    return StopResponse(status=state.status.value)
 
 
 @router.post("/paper-runs/{pr_id}/re-approve", response_model=ReApproveResponse, status_code=201)
 def re_approve_paper_run(pr_id: str, request: ReApproveRequest):
     """Re-approve after halt or re-evaluation."""
     store = get_store()
+    audit_logger = get_audit_logger()
     if not store.paper_run_exists(pr_id):
         raise HTTPException(status_code=404, detail="Paper Run not found")
 
-    # TODO: Round 6 — Create new Approval, resume or start new PaperRun
-    new_approval_id = f"reap_{uuid.uuid4().hex[:8]}"
-    return ReApproveResponse(new_approval_id=new_approval_id, status="running")
+    from src.domain.models import PaperRunState
+    from src.pipeline.approval_controller import (
+        ApprovalError,
+        create_changed_candidate_reapproval,
+        create_reapproval,
+        validate_confirmations,
+    )
+    from src.pipeline.runtime_controller import (
+        RuntimeResumeError,
+        get_latest_re_evaluation_result,
+        resume_paper_run,
+    )
+
+    current_state = PaperRunState(**store.load_paper_run_state(pr_id))
+    previous_candidate_id = current_state.candidate_id
+
+    try:
+        confirmations = validate_confirmations(request.user_confirmations)
+        resume_candidate_id = None
+
+        if current_state.status.value == "re_evaluating":
+            latest_re_evaluation = get_latest_re_evaluation_result(store, pr_id)
+            if latest_re_evaluation is None or latest_re_evaluation.outcome.value != "change_candidate":
+                raise RuntimeResumeError("候補変更に必要な再評価結果が見つかりません。")
+            if latest_re_evaluation.new_best_candidate_id is None:
+                raise RuntimeResumeError("候補変更先が未確定のため再承認できません。")
+            if request.candidate_id != latest_re_evaluation.new_best_candidate_id:
+                raise ApprovalError(
+                    f"候補 '{request.candidate_id}' は再評価で提示された変更候補ではありません。"
+                    f"再承認可能な候補: {latest_re_evaluation.new_best_candidate_id}"
+                )
+            approval = create_changed_candidate_reapproval(
+                paper_run_state=current_state,
+                confirmations=confirmations,
+                candidate_id=request.candidate_id,
+            )
+            resume_candidate_id = request.candidate_id
+        else:
+            approval = create_reapproval(
+                paper_run_state=current_state,
+                confirmations=confirmations,
+                candidate_id=request.candidate_id,
+            )
+
+        resumed_state = resume_paper_run(
+            store,
+            pr_id,
+            approval_id=approval.approval_id,
+            candidate_id=resume_candidate_id,
+        )
+    except ApprovalError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeResumeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+    store.save_approval(approval.run_id, approval)
+
+    audit_logger.append_event(AuditEvent(
+        event_id=f"evt_{uuid.uuid4().hex[:8]}",
+        timestamp=datetime.utcnow(),
+        run_id=approval.run_id,
+        event_type="approval.reapproved",
+        module="approval_controller",
+        details={
+            "approval_id": approval.approval_id,
+            "paper_run_id": pr_id,
+            "previous_candidate_id": previous_candidate_id,
+            "candidate_id": approval.candidate_id,
+        },
+    ))
+
+    return ReApproveResponse(new_approval_id=approval.approval_id, status=resumed_state.status.value)
 
 
 @router.get("/paper-runs/{pr_id}/reports")
@@ -416,6 +523,9 @@ def list_monthly_reports(pr_id: str):
     if not store.paper_run_exists(pr_id):
         raise HTTPException(status_code=404, detail="Paper Run not found")
 
+    from src.pipeline.runtime_controller import reconcile_paper_run
+
+    reconcile_paper_run(store, pr_id)
     reports = store.load_monthly_reports(pr_id)
     return reports
 
@@ -424,6 +534,12 @@ def list_monthly_reports(pr_id: str):
 def get_monthly_report(pr_id: str, report_id: str):
     """Get a specific monthly report."""
     store = get_store()
+    if not store.paper_run_exists(pr_id):
+        raise HTTPException(status_code=404, detail="Paper Run not found")
+
+    from src.pipeline.runtime_controller import reconcile_paper_run
+
+    reconcile_paper_run(store, pr_id)
     try:
         return store.load_monthly_report(pr_id, report_id)
     except FileNotFoundError:

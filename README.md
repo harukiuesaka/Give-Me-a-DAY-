@@ -19,6 +19,8 @@ The system has three zones:
 
 **User Output + Runtime** — Exactly 2 candidates (Primary + Alternative) with expected return bands, estimated max loss, confidence level, and key risks. Approval is mandatory before any runtime begins. v1 runtime is Paper Run only (no real money). Guardrails include max drawdown, consecutive underperformance, signal anomaly, and data quality failure stop conditions. Monthly reports and quarterly re-evaluation with three outcomes: continue, change (requires re-approval), or stop.
 
+Lifecycle actionability is currently surfaced through the Paper Run status API/status page; push/email delivery is not implemented yet.
+
 ## First wedge
 
 - Investment research

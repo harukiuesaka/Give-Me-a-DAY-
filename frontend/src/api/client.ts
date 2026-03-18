@@ -139,6 +139,15 @@ export const api = {
   getMonthlyReports: (prId: string) =>
     request<Record<string, unknown>[]>(`/paper-runs/${prId}/reports`),
 
+  reApprovePaperRun: (prId: string, data: {
+    candidate_id: string
+    user_confirmations: Record<string, boolean>
+  }) =>
+    request<Record<string, unknown>>(`/paper-runs/${prId}/re-approve`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   preflightGoal: (data: {
     goal: string
     success_criteria?: string

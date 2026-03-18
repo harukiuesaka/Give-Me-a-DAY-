@@ -60,9 +60,30 @@ export interface RunStatus {
   error: string | null
 }
 
+export interface LifecycleEvent {
+  event_id: string
+  event_type: string
+  timestamp: string
+  summary: string
+  details: Record<string, unknown>
+}
+
+export interface PaperRunAlertSummary {
+  alert_type: 'none' | 'report_ready' | 'halted' | 'reapproval_required' | 'review_required'
+  message: string
+  source_event_id: string | null
+  source_event_type: string | null
+  timestamp: string | null
+}
+
 // Paper Run status (user-facing subset of §12)
 export interface PaperRunStatus {
   status: 'running' | 'paused' | 'halted' | 're_evaluating'
+  candidate_id: string
+  pending_candidate_id: string | null
+  re_evaluation_note: string | null
+  alert_summary: PaperRunAlertSummary
+  events: LifecycleEvent[]
   day_count: number
   current_value: number
   total_return_pct: number

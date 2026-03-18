@@ -7,6 +7,7 @@ Every write validates against Pydantic model before saving.
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Type, TypeVar
 
@@ -28,7 +29,7 @@ class PersistenceStore:
     def _ensure_dirs(self) -> None:
         """Create base directory structure if it doesn't exist."""
         for subdir in ["runs", "paper_runs", "evidence/price", "evidence/macro",
-                        "evidence/metadata", "audit_log"]:
+                        "evidence/metadata", "audit_log", "runtime"]:
             (self.data_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     def _run_dir(self, run_id: str) -> Path:
@@ -118,6 +119,19 @@ class PersistenceStore:
     def load_approval(self, run_id: str) -> dict:
         return self._read_json(self._run_dir(run_id) / "approval.json")
 
+    # ---- Runtime lifecycle ----
+
+    def save_runtime_heartbeat(self, data: BaseModel) -> None:
+        d = self.data_dir / "runtime"
+        d.mkdir(parents=True, exist_ok=True)
+        self._write_json(d / "runner_heartbeat.json", data)
+
+    def load_runtime_heartbeat(self) -> dict | None:
+        path = self.data_dir / "runtime" / "runner_heartbeat.json"
+        if not path.exists():
+            return None
+        return self._read_json(path)
+
     # ---- Paper Run ----
 
     def save_paper_run_state(self, paper_run_id: str, data: BaseModel) -> None:
@@ -134,6 +148,18 @@ class PersistenceStore:
         d.mkdir(parents=True, exist_ok=True)
         self._write_json(d / f"{date_str}.json", data)
 
+    def save_paper_run_attention(self, paper_run_id: str, data: BaseModel) -> None:
+        self._write_json(self._paper_run_dir(paper_run_id) / "attention.json", data)
+
+    def load_paper_run_attention(self, paper_run_id: str) -> dict:
+        return self._read_json(self._paper_run_dir(paper_run_id) / "attention.json")
+
+    def load_paper_run_snapshots(self, paper_run_id: str) -> list[tuple[str, dict]]:
+        d = self._paper_run_dir(paper_run_id) / "snapshots"
+        if not d.exists():
+            return []
+        return [(f.stem, self._read_json(f)) for f in sorted(d.glob("*.json"))]
+
     def save_monthly_report(self, paper_run_id: str, report_id: str, data: BaseModel) -> None:
         d = self._paper_run_dir(paper_run_id) / "reports"
         d.mkdir(parents=True, exist_ok=True)
@@ -148,6 +174,51 @@ class PersistenceStore:
     def load_monthly_report(self, paper_run_id: str, report_id: str) -> dict:
         return self._read_json(
             self._paper_run_dir(paper_run_id) / "reports" / f"{report_id}.json"
+        )
+
+    def save_paper_run_lifecycle_event(
+        self, paper_run_id: str, event_id: str, data: BaseModel
+    ) -> None:
+        d = self._paper_run_dir(paper_run_id) / "events"
+        d.mkdir(parents=True, exist_ok=True)
+        self._write_json(d / f"{event_id}.json", data)
+
+    def load_paper_run_lifecycle_events(self, paper_run_id: str) -> list[dict]:
+        d = self._paper_run_dir(paper_run_id) / "events"
+        if not d.exists():
+            return []
+        events = [self._read_json(f) for f in sorted(d.glob("*.json"))]
+        event_order = {
+            "monthly_report_ready": 0,
+            "quarterly_re_evaluation_outcome": 1,
+            "reapproval_required": 2,
+            "halted": 3,
+        }
+        events.sort(
+            key=lambda item: (
+                datetime.fromisoformat(item["timestamp"]),
+                event_order.get(item.get("event_type", ""), 99),
+                item.get("event_id", ""),
+            )
+        )
+        return events
+
+    def save_re_evaluation_result(
+        self, paper_run_id: str, re_evaluation_id: str, data: BaseModel
+    ) -> None:
+        d = self._paper_run_dir(paper_run_id) / "re_evaluations"
+        d.mkdir(parents=True, exist_ok=True)
+        self._write_json(d / f"{re_evaluation_id}.json", data)
+
+    def load_re_evaluation_results(self, paper_run_id: str) -> list[dict]:
+        d = self._paper_run_dir(paper_run_id) / "re_evaluations"
+        if not d.exists():
+            return []
+        return [self._read_json(f) for f in sorted(d.glob("*.json"))]
+
+    def load_re_evaluation_result(self, paper_run_id: str, re_evaluation_id: str) -> dict:
+        return self._read_json(
+            self._paper_run_dir(paper_run_id) / "re_evaluations" / f"{re_evaluation_id}.json"
         )
 
     # ---- Evidence data (Parquet) ----
@@ -195,3 +266,13 @@ class PersistenceStore:
 
     def paper_run_exists(self, paper_run_id: str) -> bool:
         return (self.data_dir / "paper_runs" / paper_run_id / "state.json").exists()
+
+    def list_paper_run_ids(self) -> list[str]:
+        base = self.data_dir / "paper_runs"
+        if not base.exists():
+            return []
+        return sorted(
+            paper_run_dir.name
+            for paper_run_dir in base.iterdir()
+            if paper_run_dir.is_dir() and (paper_run_dir / "state.json").exists()
+        )

@@ -781,6 +781,15 @@ class PaperRunSchedule(BaseModel):
     next_quarterly_re_evaluation: Optional[str] = None  # ISO-8601
 
 
+class PaperRunAttentionState(BaseModel):
+    requires_attention: bool = False
+    event_type: Optional[str] = None
+    summary: Optional[str] = None
+    source_event_id: Optional[str] = None
+    source_event_type: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+
 class HaltEvent(BaseModel):
     halted_at: str  # ISO-8601
     condition_id: str

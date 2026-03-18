@@ -1,7 +1,7 @@
 # Give Me a DAY v1 — Implementation Status
 
 **Last updated**: 2026-03-18
-**Current round**: Companion AI v1 + Round 3 execution layer — COMPLETED
+**Current round**: Round 6.12 lifecycle attention persistence + Round 6.11 lifecycle alert summary + Round 6.10 persisted lifecycle events + Round 6.9 minimal runtime heartbeat / lease + Round 6.8 minimal changed-candidate re-approval flow + Round 6.6 minimal quarterly re-evaluation automation + Round 6.5 minimal re-approve flow + Round 6.4 minimal runtime lifecycle runner + Round 6.1 runtime/reporting automation + Round 4.2 execution-informed post-audit decision quality + Companion AI v1 + Round 3 execution layer — PARTIALLY COMPLETE
 
 ---
 
@@ -84,8 +84,10 @@
 
 | Task | Status | Target |
 |------|--------|--------|
-| 4.1 AuditEngine | ❌ Not started | Apply audit rubric to test results |
-| 4.2 RecommendationEngine | ✅ Done (Round 2.5) | `pipeline/recommendation_engine.py` |
+| 4.1 AuditEngine core | ✅ Done | `judgment/audit_engine.py` — evidence gap, execution translation, missing execution evidence, complexity |
+| 4.1.1 Assumption / Leakage / Realism scanners | ✅ Done | `judgment/audit_engine.py` — deterministic assumption, leakage-risk, realism expansion |
+| 4.2 Overfitting-risk scanner | ✅ Done | `judgment/audit_engine.py` — OOS collapse rejection, weak significance warning, thin evidence warning |
+| 4.2 RecommendationEngine | ✅ Extended | `pipeline/recommendation_engine.py` — audited survivors prefer execution ranking when available; confidence degrades on material audit warnings |
 | 4.3 ReportingEngine | ✅ Done (Round 2.5) | `pipeline/presentation_builder.py` |
 
 ---
@@ -136,13 +138,26 @@ Goal intake, loading, approval, result, and Companion disclosure flows exist. Ru
 
 ---
 
-## Round 6: Paper Run Runtime — NOT STARTED
+## Round 6: Paper Run Runtime — PARTIALLY COMPLETE
 
-Paper Run full scheduler/reporting loop remains pending; daily mark-to-market + stop-condition evaluation core is implemented.
+| Task | Status | Files |
+|------|--------|-------|
+| 6.1 Runtime reconciliation | ✅ Done | `pipeline/runtime_controller.py` — lazy Paper Run advancement on status/report access using the existing PaperRunEngine |
+| 6.2 Stop persistence | ✅ Done | `api/routes.py`, `pipeline/runtime_controller.py` — manual stop now persists halted state + halt history |
+| 6.3 Monthly report artifact | ✅ Done | `pipeline/runtime_controller.py`, `persistence/store.py` — minimal monthly reports are generated, persisted, and retrievable |
+| 6.4 Runtime lifecycle runner | ✅ Done | `main.py`, `pipeline/runtime_controller.py`, `persistence/store.py` — backend loop reconciles active Paper Runs without endpoint-triggered access |
+| 6.5 Re-approve flow | ✅ Done | `api/routes.py`, `pipeline/approval_controller.py`, `pipeline/runtime_controller.py`, `frontend/src/pages/StatusPage.tsx` — halted/paused runs can be explicitly re-approved and resumed |
+| 6.6 Quarterly re-evaluation automation | ✅ Done | `pipeline/runtime_controller.py`, `persistence/store.py` — active runs now persist minimal quarterly re-evaluation results with continue/change/stop outcomes |
+| 6.7 Notifications | ⏳ Pending | no push/email notification layer yet |
+| 6.8 Changed-candidate approval flow | ✅ Done | `api/routes.py`, `pipeline/approval_controller.py`, `pipeline/runtime_controller.py`, `frontend/src/pages/StatusPage.tsx` — `change_candidate` now persists an actionable pending candidate and requires explicit re-approval before switching the active Paper Run candidate |
+| 6.9 Runtime heartbeat / lease | ✅ Done | `main.py`, `persistence/store.py`, `pipeline/runtime_controller.py`, `api/routes.py`, `api/schemas.py` — lifecycle runner persists a heartbeat, stale takeover is deterministic, and status exposes runtime freshness |
+| 6.10 Lifecycle events | ✅ Done | `persistence/store.py`, `pipeline/runtime_controller.py`, `api/routes.py`, `api/schemas.py`, `frontend/src/pages/StatusPage.tsx`, `frontend/src/types/schema.ts` — monthly report ready, halt, quarterly outcome, and re-approval-required events persist and appear on the Paper Run status surface |
+| 6.11 Lifecycle alert summary | ✅ Done | `pipeline/runtime_controller.py`, `api/routes.py`, `api/schemas.py`, `frontend/src/pages/StatusPage.tsx`, `frontend/src/types/schema.ts` — a small actionable summary is derived from persisted lifecycle events and surfaced on the Paper Run status response |
+| 6.12 Lifecycle attention persistence | ✅ Done | `persistence/store.py`, `pipeline/runtime_controller.py`, `api/routes.py`, `api/schemas.py` — the current actionable Paper Run attention item is persisted per run and reused by the status surface |
 
 ---
 
-## What Works Now (Companion AI v1 + Round 3)
+## What Works Now (Companion AI v1 + Round 6.1)
 
 1. Backend starts: `uvicorn src.main:app`
 2. `POST /api/v1/runs` runs full 12-step pipeline (planning + execution)
@@ -154,16 +169,26 @@ Paper Run full scheduler/reporting loop remains pending; daily mark-to-market + 
 8. PaperRunEngine: daily mark-to-market update, 4 stop conditions (drawdown, underperf, anomaly, data quality)
 9. Execution gracefully falls back to planning-only mode if data unavailable
 10. Approval gate, presentation, export, and Companion disclosure flows continue working
-11. Backend test suite passes locally: 260 tests passing
+11. AuditEngine now runs after comparison and before recommendation, persists per-candidate audits, and can reject structurally weak candidates before packaging
+12. AuditEngine also consumes per-candidate statistical test artifacts for narrow overfitting-risk judgment
+13. RecommendationEngine prefers execution-based ranking among audit survivors when available, and lowers confidence when the selected survivor still carries material audit warnings
+14. Approved Paper Runs now reconcile forward on status/report access, persist updated state and daily snapshots, and generate minimal monthly report artifacts when due
+15. A backend runtime lifecycle runner now reconciles active Paper Runs without requiring status/report endpoint access
+16. Manual stop now persists halted runtime state instead of returning a placeholder-only response
+17. Halted and paused Paper Runs can now be explicitly re-approved and resumed without creating a new UI flow
+18. Active Paper Runs now persist quarterly re-evaluation results with deterministic continue/change/stop outcomes
+19. `change_candidate` outcomes now persist a concrete pending candidate, move the run into `re_evaluating`, and require explicit re-approval before the candidate switch takes effect
+20. `stop_all` outcomes halt the run, and `change_candidate` falls back to halt if no alternate surfaced candidate exists
+21. Paper Run status now surfaces recent lifecycle events with truthful summaries
+22. Backend test suite passes locally
 
 ## What Does NOT Work Yet
 
 - No actual LLM calls (works via fallback templates; Claude API ready but untested with live key)
-- No audit engine (full realization with execution-informed severity adjustment)
-- No automated Paper Run daily scheduler (manual update function exists)
+- No full audit rubric yet (regime/cost/observability scanners, compound patterns, and retry logic remain deferred)
+- No fully featured scheduler/orchestrator platform (runtime runner is a minimal in-process loop)
 - No notification system (halt events logged but not pushed)
-- No quarterly re-evaluation automation
-- Frontend StatusPage shows initial state only (no background updates)
+- No dedicated frontend monthly report surface yet
 
 ---
 
@@ -171,11 +196,8 @@ Paper Run full scheduler/reporting loop remains pending; daily mark-to-market + 
 
 | File | What's Stubbed | Round Target |
 |------|---------------|-------------|
-| `api/routes.py` POST /paper-runs/{id}/stop | Updates status but no real portfolio unwinding | Round 4+ |
-| `api/routes.py` POST /paper-runs/{id}/re-approve | Returns placeholder IDs | Round 4+ |
-| `execution/paper_run_engine.py` | Daily scheduler not wired (function exists, no cron) | Round 4+ |
+| `execution/paper_run_engine.py` | Engine is wired via a minimal in-process runner, not a fuller scheduler platform | Round 4+ |
 | Notification system | Halt events logged, not pushed to user | Round 4+ |
-| Re-evaluation runner | Interface defined, not automated | Round 4+ |
 
 ---
 

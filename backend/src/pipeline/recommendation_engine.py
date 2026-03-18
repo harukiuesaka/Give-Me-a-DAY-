@@ -16,8 +16,12 @@ ranking will be evidence-based.
 import logging
 
 from src.domain.models import (
+    Audit,
+    AuditCategory,
+    AuditStatus,
     Candidate,
     CandidateType,
+    ComparisonResult,
     ConfidenceLabel,
     CriticalCondition,
     EvidencePlan,
@@ -44,6 +48,8 @@ def build_recommendation(
     candidates: list[Candidate],
     evidence_plans: list[EvidencePlan],
     validation_plans: list[ValidationPlan],
+    audits: list[Audit] | None = None,
+    comparison_result: ComparisonResult | None = None,
 ) -> Recommendation:
     """
     Build a Recommendation from planning outputs.
@@ -55,29 +61,63 @@ def build_recommendation(
     if not candidates:
         raise ValueError("Cannot build recommendation with zero candidates")
 
-    # 1. Score and rank candidates
-    scored = _score_candidates(candidates, evidence_plans, validation_plans)
-    ranked = sorted(scored, key=lambda x: x[1], reverse=True)
+    audit_map = {audit.candidate_id: audit for audit in audits or []}
+    eligible_candidates, rejected_candidate_ids = _partition_candidates(candidates, audit_map)
 
-    best_candidate = ranked[0][0]
-    runner_up = ranked[1][0] if len(ranked) > 1 else None
-    rejected = [c for c, _ in ranked[2:]]
+    # 1. Score and rank candidates
+    eligible_evidence_plans = [
+        plan for plan in evidence_plans
+        if plan.candidate_id in {candidate.candidate_id for candidate in eligible_candidates}
+    ]
+    eligible_validation_plans = [
+        plan for plan in validation_plans
+        if plan.candidate_id in {candidate.candidate_id for candidate in eligible_candidates}
+    ]
+    scored = _score_candidates(eligible_candidates, eligible_evidence_plans, eligible_validation_plans)
+    planning_ranked = [candidate for candidate, _ in sorted(scored, key=lambda x: x[1], reverse=True)]
+    ranked_candidates = _rank_candidates(
+        planning_ranked,
+        eligible_candidates,
+        comparison_result,
+    )
+
+    best_candidate = ranked_candidates[0] if ranked_candidates else None
+    runner_up = ranked_candidates[1] if len(ranked_candidates) > 1 else None
+    rejected = ranked_candidates[2:]
+    rejected_candidate_ids.extend(
+        candidate.candidate_id for candidate in rejected
+        if candidate.candidate_id not in rejected_candidate_ids
+    )
 
     # 2. Build ranking logic (min 3 axes)
-    ranking_logic = _build_ranking_logic(best_candidate, runner_up, scored)
+    ranking_logic = _build_ranking_logic(
+        best_candidate,
+        runner_up,
+        scored,
+        audits,
+        comparison_result=comparison_result,
+    )
 
     # 3. Build open unknowns (min 1)
     open_unknowns = _build_open_unknowns(research_spec, evidence_plans)
 
     # 4. Build critical conditions (min 1)
-    critical_conditions = _build_critical_conditions(research_spec, best_candidate)
+    critical_conditions = _build_critical_conditions(research_spec, best_candidate, audits)
 
     # 5. Derive confidence label
-    confidence = _derive_confidence(
-        research_spec.validation_requirements.minimum_evidence_standard,
-        evidence_plans,
-        validation_plans,
-    )
+    base_confidence = ConfidenceLabel.LOW
+    if not eligible_candidates:
+        confidence = ConfidenceLabel.LOW
+    else:
+        base_confidence = _derive_confidence(
+            research_spec.validation_requirements.minimum_evidence_standard,
+            eligible_evidence_plans,
+            eligible_validation_plans,
+        )
+        confidence = _degrade_confidence_from_audit(
+            base_confidence,
+            audit_map.get(best_candidate.candidate_id) if best_candidate else None,
+        )
 
     # 6. Expiry
     expiry = RecommendationExpiry(
@@ -87,21 +127,43 @@ def build_recommendation(
     )
 
     # 7. Next validation steps
-    next_steps = _build_next_steps(research_spec)
+    next_steps = _build_next_steps(research_spec, audits)
 
     return Recommendation(
         run_id=run_id,
-        best_candidate_id=best_candidate.candidate_id,
+        best_candidate_id=best_candidate.candidate_id if best_candidate else None,
         runner_up_candidate_id=runner_up.candidate_id if runner_up else None,
-        rejected_candidate_ids=[c.candidate_id for c in rejected],
+        rejected_candidate_ids=rejected_candidate_ids,
         ranking_logic=ranking_logic,
         open_unknowns=open_unknowns,
         critical_conditions=critical_conditions,
         confidence_label=confidence,
-        confidence_explanation=_confidence_explanation(confidence),
+        confidence_explanation=_confidence_explanation(
+            confidence,
+            has_survivors=bool(eligible_candidates),
+            degraded_for_audit=bool(best_candidate and confidence != base_confidence),
+        ),
         next_validation_steps=next_steps,
         recommendation_expiry=expiry,
     )
+
+
+def _partition_candidates(
+    candidates: list[Candidate],
+    audit_map: dict[str, Audit],
+) -> tuple[list[Candidate], list[str]]:
+    if not audit_map:
+        return candidates, []
+
+    eligible: list[Candidate] = []
+    rejected_ids: list[str] = []
+    for candidate in candidates:
+        audit = audit_map.get(candidate.candidate_id)
+        if audit and audit.audit_status == AuditStatus.REJECTED:
+            rejected_ids.append(candidate.candidate_id)
+            continue
+        eligible.append(candidate)
+    return eligible, rejected_ids
 
 
 def _score_candidates(
@@ -157,15 +219,82 @@ def _score_candidates(
     return scored
 
 
+def _rank_candidates(
+    planning_ranked: list[Candidate],
+    eligible_candidates: list[Candidate],
+    comparison_result: ComparisonResult | None,
+) -> list[Candidate]:
+    if not comparison_result:
+        return planning_ranked
+
+    candidate_map = {candidate.candidate_id: candidate for candidate in eligible_candidates}
+    execution_ranking = comparison_result.execution_based_ranking
+    preferred_ids = [
+        candidate_id
+        for candidate_id in (
+            execution_ranking.recommended_best,
+            execution_ranking.recommended_runner_up,
+        )
+        if candidate_id in candidate_map
+    ]
+    if not preferred_ids:
+        return planning_ranked
+
+    ranked: list[Candidate] = []
+    seen: set[str] = set()
+    for candidate_id in preferred_ids:
+        if candidate_id in seen:
+            continue
+        ranked.append(candidate_map[candidate_id])
+        seen.add(candidate_id)
+
+    for candidate in planning_ranked:
+        if candidate.candidate_id in seen:
+            continue
+        ranked.append(candidate)
+        seen.add(candidate.candidate_id)
+
+    return ranked
+
+
 def _build_ranking_logic(
-    best: Candidate,
+    best: Candidate | None,
     runner_up: Candidate | None,
     scored: list[tuple[Candidate, float]],
+    audits: list[Audit] | None = None,
+    comparison_result: ComparisonResult | None = None,
 ) -> list[RankingLogicItem]:
     """Build ranking rationale (min 3 axes)."""
+    if best is None:
+        rejected = len([audit for audit in audits or [] if audit.audit_status == AuditStatus.REJECTED])
+        return [
+            RankingLogicItem(
+                comparison_axis="監査結果",
+                best_assessment="該当なし",
+                runner_up_assessment="該当なし",
+                verdict=f"監査の結果、提示可能な候補がありません（棄却 {rejected} 件）。",
+            ),
+            RankingLogicItem(
+                comparison_axis="エビデンス充足",
+                best_assessment="該当なし",
+                runner_up_assessment="該当なし",
+                verdict="最低限のエビデンス条件を満たす候補が残りませんでした。",
+            ),
+            RankingLogicItem(
+                comparison_axis="運用実現性",
+                best_assessment="該当なし",
+                runner_up_assessment="該当なし",
+                verdict="v1の運用条件内で承認可能な候補がありません。",
+            ),
+        ]
+
     runner_up_name = runner_up.name if runner_up else "該当なし"
 
-    items = [
+    items: list[RankingLogicItem] = []
+    if comparison_result and _execution_ranking_available(best, comparison_result):
+        items.extend(_build_execution_ranking_items(best, runner_up, comparison_result))
+
+    items.extend([
         RankingLogicItem(
             comparison_axis="実装複雑性",
             best_assessment=f"{best.name}: {best.implementation_complexity.value}",
@@ -184,9 +313,9 @@ def _build_ranking_logic(
             runner_up_assessment=f"{runner_up_name}: {len(runner_up.known_risks)}件" if runner_up else "該当なし",
             verdict="リスクが認識されており、検証計画に反映済み",
         ),
-    ]
+    ])
 
-    return items
+    return items[:3]
 
 
 def _build_open_unknowns(
@@ -218,9 +347,20 @@ def _build_open_unknowns(
 
 
 def _build_critical_conditions(
-    spec: ResearchSpec, best: Candidate
+    spec: ResearchSpec, best: Candidate | None, audits: list[Audit] | None = None
 ) -> list[CriticalCondition]:
     """Build critical conditions (min 1)."""
+    if best is None:
+        return [
+            CriticalCondition(
+                condition_id="CC-01",
+                statement="監査で棄却された論点を解消し、少なくとも1候補を監査通過状態に戻すこと",
+                verification_method="不足エビデンスの補完と候補の再検証",
+                verification_timing="新しい候補提示の前",
+                source="audit",
+            )
+        ]
+
     conditions = [
         CriticalCondition(
             condition_id="CC-01",
@@ -271,8 +411,48 @@ def _derive_confidence(
     return ConfidenceLabel.MEDIUM
 
 
-def _confidence_explanation(confidence: ConfidenceLabel) -> str:
+def _degrade_confidence_from_audit(
+    confidence: ConfidenceLabel,
+    audit: Audit | None,
+) -> ConfidenceLabel:
+    if audit is None or confidence == ConfidenceLabel.LOW:
+        return confidence
+
+    high_material_categories = {AuditCategory.RECOMMENDATION_RISK, AuditCategory.OVERFITTING_RISK}
+    has_high_material_warning = any(
+        issue.severity.value in {"high", "critical"}
+        and issue.category in high_material_categories
+        and not issue.disqualifying
+        for issue in audit.issues
+    )
+    material_warning_count = sum(
+        1
+        for issue in audit.issues
+        if not issue.disqualifying
+        and (
+            issue.severity.value in {"high", "critical"}
+            or (
+                issue.category in high_material_categories
+                and issue.severity.value == "medium"
+            )
+        )
+    )
+    if has_high_material_warning or material_warning_count >= 2:
+        return ConfidenceLabel.LOW
+    return confidence
+
+
+def _confidence_explanation(
+    confidence: ConfidenceLabel,
+    has_survivors: bool = True,
+    degraded_for_audit: bool = False,
+) -> str:
     """Generate confidence explanation. No false confidence."""
+    if not has_survivors:
+        return "監査で承認可能な候補が残っていないため、現時点で推奨を提示できない。追加の検証または候補の再設計が必要。"
+    if confidence == ConfidenceLabel.LOW and degraded_for_audit:
+        return "実行比較の結果はあるが、選択候補に実行根拠や過学習懸念の警告が残っているため、現時点の信頼度は低い。追加検証で推奨が変わる可能性がある。"
+
     explanations = {
         ConfidenceLabel.LOW: "計画段階の評価のみに基づいており、バックテスト未実施。エビデンスのギャップがあるため、信頼度は低い。",
         ConfidenceLabel.MEDIUM: "計画段階の評価では妥当だが、バックテストによる実証は未完了。過去データでの検証後に信頼度が変わる可能性がある。",
@@ -281,8 +461,65 @@ def _confidence_explanation(confidence: ConfidenceLabel) -> str:
     return explanations[confidence]
 
 
-def _build_next_steps(spec: ResearchSpec) -> list[NextValidationStep]:
+def _execution_ranking_available(
+    best: Candidate,
+    comparison_result: ComparisonResult,
+) -> bool:
+    return comparison_result.execution_based_ranking.recommended_best == best.candidate_id
+
+
+def _build_execution_ranking_items(
+    best: Candidate,
+    runner_up: Candidate | None,
+    comparison_result: ComparisonResult,
+) -> list[RankingLogicItem]:
+    runner_up_name = runner_up.name if runner_up else "該当なし"
+    rationale = comparison_result.execution_based_ranking.ranking_rationale
+    if not rationale:
+        return [
+            RankingLogicItem(
+                comparison_axis="実行比較",
+                best_assessment=f"{best.name}: 実行比較で推奨",
+                runner_up_assessment=f"{runner_up_name}: 実行比較で次点" if runner_up else "該当なし",
+                verdict="監査通過候補の中では実行比較を優先して順位づけしました。",
+            )
+        ]
+
+    items: list[RankingLogicItem] = []
+    for reason in rationale[:2]:
+        best_text = f"{best.name}: {'優位' if reason.winner == best.candidate_id else '劣後'}"
+        runner_text = (
+            f"{runner_up_name}: {'優位' if runner_up and reason.winner == runner_up.candidate_id else '劣後'}"
+            if runner_up else "該当なし"
+        )
+        items.append(
+            RankingLogicItem(
+                comparison_axis=f"実行比較/{reason.comparison_axis}",
+                best_assessment=best_text,
+                runner_up_assessment=runner_text,
+                verdict=f"{reason.winner} が {reason.margin} 差で優位",
+            )
+        )
+    return items
+
+
+def _build_next_steps(
+    spec: ResearchSpec,
+    audits: list[Audit] | None = None,
+) -> list[NextValidationStep]:
     """Build next validation steps."""
+    if audits and all(audit.audit_status == AuditStatus.REJECTED for audit in audits):
+        return [
+            NextValidationStep(
+                step_id="NVS-01",
+                who="system",
+                what_data="不足している必須エビデンス",
+                what_test="棄却理由を解消したうえで再監査",
+                threshold="少なくとも1候補が監査で rejected 以外になること",
+                priority=NextValidationPriority.CRITICAL,
+            )
+        ]
+
     return [
         NextValidationStep(
             step_id="NVS-01",

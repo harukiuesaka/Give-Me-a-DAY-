@@ -4,6 +4,8 @@ Pydantic models for API request/response.
 These are the API boundary types, separate from internal domain models.
 """
 
+from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -31,6 +33,35 @@ class ReApproveRequest(BaseModel):
     user_confirmations: dict[str, bool]
 
 
+class RuntimeHealth(BaseModel):
+    status: str = "missing"  # healthy | stale | missing
+    last_heartbeat_at: Optional[datetime] = None
+
+
+class PaperRunAlertType(str, Enum):
+    NONE = "none"
+    REPORT_READY = "report_ready"
+    HALTED = "halted"
+    REAPPROVAL_REQUIRED = "reapproval_required"
+    REVIEW_REQUIRED = "review_required"
+
+
+class PaperRunAlertSummary(BaseModel):
+    alert_type: PaperRunAlertType = PaperRunAlertType.NONE
+    message: str = "対応が必要なイベントはありません。"
+    source_event_id: Optional[str] = None
+    source_event_type: Optional[str] = None
+    timestamp: Optional[datetime] = None
+
+
+class PaperRunLifecycleEvent(BaseModel):
+    event_id: str
+    event_type: str
+    timestamp: datetime
+    summary: str
+    details: dict = Field(default_factory=dict)
+
+
 # ---- Response schemas ----
 
 class CreateRunResponse(BaseModel):
@@ -56,6 +87,12 @@ class ApproveResponse(BaseModel):
 
 class PaperRunStatusResponse(BaseModel):
     status: str
+    candidate_id: str
+    pending_candidate_id: Optional[str] = None
+    re_evaluation_note: Optional[str] = None
+    runtime_health: RuntimeHealth = Field(default_factory=RuntimeHealth)
+    alert_summary: PaperRunAlertSummary = Field(default_factory=PaperRunAlertSummary)
+    events: list[PaperRunLifecycleEvent] = Field(default_factory=list)
     day_count: int = 0
     current_value: float = 0.0
     total_return_pct: float = 0.0

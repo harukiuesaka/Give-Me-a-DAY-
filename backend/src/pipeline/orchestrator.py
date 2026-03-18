@@ -93,6 +93,7 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
         # ---- Step 7: Data Acquisition ----
         _update_status(store, run_id, RunStatus.EXECUTING, "data_acquisition", 6)
         test_results = {}
+        statistical_tests = {}
         comparison_result = None
         execution_succeeded = False
 
@@ -147,14 +148,17 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
                 if tr.return_timeseries and tr.return_timeseries.net_returns:
                     rets = np.array(tr.return_timeseries.net_returns)
                     ttest = run_return_ttest(rets, cid, f"ttest_{cid}")
+                    statistical_tests.setdefault(cid, []).append(ttest)
                     store.save_candidate_object(
                         run_id, "stat_tests", f"{cid}_ttest", ttest
                     )
                     sharpe_test = run_sharpe_significance(rets, cid, f"sharpe_{cid}")
+                    statistical_tests.setdefault(cid, []).append(sharpe_test)
                     store.save_candidate_object(
                         run_id, "stat_tests", f"{cid}_sharpe", sharpe_test
                     )
                     oos = run_oos_comparison(rets, cid, test_id=f"oos_{cid}")
+                    statistical_tests.setdefault(cid, []).append(oos)
                     store.save_candidate_object(
                         run_id, "stat_tests", f"{cid}_oos", oos
                     )
@@ -183,22 +187,44 @@ def execute_pipeline(run_id: str, request: CreateRunRequest) -> str:
             _log_step(audit_logger, run_id, "execution_fallback",
                       {"error": str(exec_err)})
 
-        # ---- Step 11: Recommendation ----
+        # ---- Step 11: Audit ----
+        from src.judgment.audit_engine import audit_candidates
+
+        audits = audit_candidates(
+            research_spec,
+            candidates,
+            evidence_plans,
+            validation_plans,
+            test_results=test_results,
+            statistical_tests=statistical_tests,
+            comparison_result=comparison_result,
+        )
+        for audit in audits:
+            store.save_candidate_object(run_id, "audits", audit.candidate_id, audit)
+        _log_step(audit_logger, run_id, "audit", {"audits_count": len(audits)})
+
+        # ---- Step 12: Recommendation ----
         _update_status(store, run_id, RunStatus.EXECUTING, "recommendation", 10)
         from src.pipeline.recommendation_engine import build_recommendation
         recommendation = build_recommendation(
-            run_id, research_spec, candidates, evidence_plans, validation_plans,
+            run_id,
+            research_spec,
+            candidates,
+            evidence_plans,
+            validation_plans,
+            audits=audits,
+            comparison_result=comparison_result,
         )
         store.save_run_object(run_id, "recommendation", recommendation)
         _log_step(audit_logger, run_id, "recommendation")
 
-        # ---- Step 12: Presentation ----
+        # ---- Step 13: Presentation ----
         _update_status(store, run_id, RunStatus.EXECUTING, "presentation", 11)
         from src.pipeline.presentation_builder import (
             build_markdown_export,
             build_presentation,
         )
-        cards, context = build_presentation(recommendation, candidates)
+        cards, context = build_presentation(recommendation, candidates, audits=audits)
         store.save_presentation_list(run_id, "candidate_cards.json", cards)
         store.save_presentation(run_id, "presentation_context.json", context)
 
