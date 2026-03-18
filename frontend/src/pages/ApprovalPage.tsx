@@ -31,7 +31,6 @@ function ApprovalPage() {
 
   // Companion context
   const [context, setContext] = useState<ApprovalContext | null>(null)
-  const [contextError, setContextError] = useState<string | null>(null)
   const [contextLoading, setContextLoading] = useState(true)
 
   // Comprehension check
@@ -56,7 +55,7 @@ function ApprovalPage() {
     setContextLoading(true)
     api.getApprovalContext(runId, candidateId, virtualCapital)
       .then(ctx => { setContext(ctx); setContextLoading(false) })
-      .catch(() => { setContextError(null); setContextLoading(false) })
+      .catch(() => { setContextLoading(false) })
       // Context failure is non-fatal — approval still works, just without companion disclosure
   }, [runId, candidateId]) // virtualCapital intentionally not in deps (context loaded once at mount)
 

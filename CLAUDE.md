@@ -34,6 +34,9 @@ That is useful, but not the center.
 The center is:
 **comparison, validation, rejection, and conditional recommendation for high-complexity systems.**
 
+Investment is the v1 proving ground, not the terminal identity.
+The deeper product thesis is to convert AI intelligence into real-world successful outcomes, then improve future outcomes by learning from validation and runtime feedback.
+
 ---
 
 ## Core Truth

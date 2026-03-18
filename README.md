@@ -2,6 +2,9 @@
 
 Give Me a DAY is a validate-then-operate system for investment strategies.
 
+Its mission is to transform AI intelligence into real-world outputs that actually work for humans.
+Validation is the conversion layer between ideas and results, not an academic end in itself.
+
 It internally researches, tests, compares, and rejects candidate directions, presents the 2 survivors to the user for approval, and upon approval operates the chosen strategy autonomously under predefined stop conditions.
 
 ## Architecture
@@ -42,9 +45,12 @@ The system has three zones:
 
 ## Product truth
 
-**Give Me a DAY does not generate code. It generates validated direction.**
+**Give Me a DAY does not mainly generate code.
+It generates validated direction that can be operated in reality.**
 
+In v1, investment is the first high-signal domain pack.
 All recommendations are conditional. All recommendations expire. No guaranteed outcomes.
+The longer-term product identity is broader: a validation engine that gets better over time at producing successful real-world outputs as outcomes accumulate.
 
 ## Source of truth
 

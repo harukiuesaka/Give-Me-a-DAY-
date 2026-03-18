@@ -2,7 +2,7 @@
 
 ## One-line definition
 
-Give Me a DAY is a validate-then-operate system for investment strategies that internally researches, tests, compares, and rejects candidate directions, presents the 2 survivors to the user for approval, and upon approval operates the chosen strategy autonomously under predefined stop conditions.
+Give Me a DAY is a validate-then-operate system that transforms AI reasoning into real-world outcomes; in v1, it does this for investment strategies by internally researching, testing, comparing, and rejecting candidate directions, presenting the 2 survivors to the user for approval, and operating the approved one under predefined stop conditions.
 
 ## Sharper line
 
@@ -20,6 +20,8 @@ Anyone can get a strategy idea in five minutes. The hard part comes after:
 Today these three problems are solved by three different products — research tools, backtesting platforms, and execution infrastructure — that don't talk to each other. The user is the glue. They must interpret backtests, decide which direction to pursue, wire up execution, define stop conditions, and remember to re-evaluate. Most don't.
 
 Give Me a DAY replaces the user as the glue. It validates internally, presents externally, and operates autonomously — with the user's approval as the only gate between validation and operation.
+
+Every validation and runtime outcome is also learning material: what failed, what survived, what conditions mattered, and which structures held up in reality. This is how the system improves over time at generating successful outputs, not just better reports.
 
 ## What the product does
 
@@ -69,10 +71,10 @@ The user's job is to state a goal, review 2 candidates, approve one, and check m
 
 ## First wedge
 
-- Investment strategy validation and operation
+- Investment strategy validation and operation (first domain pack)
 - Japanese equities and US equities (v1)
 - Daily-frequency strategies using public data
-- Paper Run (simulated operation) in v1, real execution in v1.5
+- Paper Run (simulated operation) in v1
 
 ## Product center
 

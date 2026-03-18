@@ -9,12 +9,18 @@
 
 ## 1. Implementation Purpose
 
-Build a working v1 of Give Me a DAY: a validate-then-operate system for investment strategies.
+Build a working v1 of Give Me a DAY: a validate-then-operate system that converts AI intelligence into real-world outcomes, starting with investment strategies.
 
 The system receives a user's investment goal in natural language, internally generates/tests/compares/rejects candidate strategies using real public data, presents the 2 strongest survivors as cards for user approval, and upon approval operates the chosen strategy autonomously in Paper Run (simulated, no real money).
 
 The user types a goal, waits 5–10 minutes, sees 2 candidate cards, approves one, and has a strategy running in daily simulation. Monthly reports are pushed. Quarterly re-evaluation runs automatically. Stop conditions halt the system when breached.
 
+
+### Product thesis note (implementation guardrail)
+
+- v1 is intentionally investment-first, but investment is the first domain pack, not the final product identity.
+- Validation is the reality-conversion layer between ideas and results.
+- Persisted run outcomes should be treated as reusable product knowledge to improve future candidate design, validation design, and rejection quality.
 ---
 
 ## 2. v1 Scope

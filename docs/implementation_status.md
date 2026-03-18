@@ -1,7 +1,7 @@
 # Give Me a DAY v1 — Implementation Status
 
-**Last updated**: 2026-03-17
-**Current round**: Round 3 (Execution Layer) — COMPLETED
+**Last updated**: 2026-03-18
+**Current round**: Companion AI v1 + Round 3 execution layer — COMPLETED
 
 ---
 
@@ -59,7 +59,7 @@
 
 | Task | Status | Files |
 |------|--------|-------|
-| 2.6.1 LoadingPage alignment | ✅ Done | `frontend/src/pages/LoadingPage.tsx` — 8-step labels matching actual pipeline |
+| 2.6.1 LoadingPage alignment | ✅ Done | `frontend/src/pages/LoadingPage.tsx` — loading labels aligned to the actual pipeline |
 | 2.6.2 ApprovalPage triple-confirm | ✅ Done | `frontend/src/pages/ApprovalPage.tsx` — 3 separate checkboxes (risks, stops, paper run) |
 | 2.6.3 Architecture PNG | ✅ Done | `docs/assets/give-me-a-day-system-diagram-v2.png` — PNG conversion from SVG |
 | 2.6.4 Image references | ✅ Done | README.md, implementation_status.md — updated to PNG path |
@@ -76,7 +76,7 @@
 | 3.4 ComparisonEngine | ✅ Done | `execution/comparison_engine.py` — metric comparison matrix, rejection detection, composite ranking |
 | 3.5 PaperRunEngine | ✅ Done | `execution/paper_run_engine.py` — daily update, stop condition evaluation (SC-01 to SC-04) |
 | 3.6 Orchestrator update | ✅ Done | `pipeline/orchestrator.py` — 12-step pipeline with execution fallback |
-| 3.7 Tests | ✅ Done | 52 new tests (144 total), all passing |
+| 3.7 Tests | ✅ Done | Execution layer covered in the merged backend suite; backend tests pass locally |
 
 ---
 
@@ -90,9 +90,9 @@
 
 ---
 
-## Round 5: User-Facing — NOT STARTED
+## Round 5: User-Facing — PARTIALLY COMPLETE
 
-Frontend pages exist as minimal stubs. API endpoints exist as routing stubs.
+Goal intake, loading, approval, result, and Companion disclosure flows exist. Runtime status/reporting and re-evaluation UX remain partial.
 
 ---
 
@@ -114,7 +114,7 @@ Frontend pages exist as minimal stubs. API endpoints exist as routing stubs.
 | C.10 Frontend API client | ✅ Done | `frontend/src/api/client.ts` — preflightGoal, preflightSubmit, getApprovalContext |
 | C.11 InputPage preflight flow | ✅ Done | `frontend/src/pages/InputPage.tsx` — 3-stage flow (input → clarification → review) |
 | C.12 ApprovalPage disclosure | ✅ Done | `frontend/src/pages/ApprovalPage.tsx` — authority disclosure, KPI alignment, stop translations, comprehension check |
-| C.13 Tests | ✅ Done | 115 new companion tests (4 files), 199 total passing |
+| C.13 Tests | ✅ Done | Companion AI coverage is included in the merged backend suite; backend tests pass locally |
 
 **What Companion AI v1 does:**
 - Evaluates goal completeness on `/preflight` before pipeline starts
@@ -138,7 +138,7 @@ Frontend pages exist as minimal stubs. API endpoints exist as routing stubs.
 
 ## Round 6: Paper Run Runtime — NOT STARTED
 
-All Paper Run modules are placeholder directories only.
+Paper Run full scheduler/reporting loop remains pending; daily mark-to-market + stop-condition evaluation core is implemented.
 
 ---
 
@@ -153,8 +153,8 @@ All Paper Run modules are placeholder directories only.
 7. ComparisonEngine: cross-candidate metric matrix, rejection detection, composite ranking
 8. PaperRunEngine: daily mark-to-market update, 4 stop conditions (drawdown, underperf, anomaly, data quality)
 9. Execution gracefully falls back to planning-only mode if data unavailable
-10. All prior features (approval gate, presentation, export) continue working
-11. All 144 prior tests pass; 115 new Companion AI tests added (199 total passing)
+10. Approval gate, presentation, export, and Companion disclosure flows continue working
+11. Backend test suite passes locally: 260 tests passing
 
 ## What Does NOT Work Yet
 
@@ -198,9 +198,9 @@ All Paper Run modules are placeholder directories only.
 - ❌ No generic workflow automation abstractions
 - ❌ No "build any app" language in code or comments
 - ❌ No v2 features implemented
-- ❌ No source of truth documents modified
-- ❌ No execution engine implemented (correctly deferred to Round 3+)
+- ⚠️ Source of truth documents have targeted wording and Companion updates; no v1 scope expansion
+- ✅ Execution engine is implemented within v1 scope (data acquisition, backtest, statistics, comparison, Paper Run core)
 - ✅ All fallbacks are investment-research specific (not generic)
 - ✅ All prompts are investment-research specific (not generic)
 - ✅ Rejection logic is structural: failure conditions on every test, falsification on every claim
-- ✅ Product identity preserved: validation-first, investment research focus
+- ✅ Product identity preserved: validation-first, investment-first in v1, with Companion AI kept narrow and trace-only
