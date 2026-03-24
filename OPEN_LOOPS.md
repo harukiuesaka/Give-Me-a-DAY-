@@ -1,6 +1,6 @@
 # OPEN_LOOPS.md
 
-**最終更新**: 2026-03-24 (Session 3 完了後)
+**最終更新**: 2026-03-24 (Session 3 全完了)
 
 ---
 
@@ -13,12 +13,9 @@
 
 ## 現在のオープンループ
 
-| ID | カテゴリ | 内容 | 優先度 | 担当 | 追加日 |
-|----|---------|------|-------|------|-------|
-| OL-009 | Test | LLM ライブテスト未実施（有効な ANTHROPIC_API_KEY が必要）。ops/run.sh --skip-commit で確認可能 | High | Human | 2026-03-24 |
-| OL-011 | Infra | GitHub Secrets に `ANTHROPIC_API_KEY` / `FRED_API_KEY` 設定要確認。CI full green 未確認 | Medium | Human | 2026-03-24 |
-| OL-012 | Infra | Railway project 未設定。`ops/run.sh` を cron 実行するには Railway Variables + cron 設定が必要 | Medium | Human | 2026-03-24 |
-| OL-013 | Infra | Supabase: free tier cap で restore 不可（3 inactive projects、2 project 上限）。1 件削除または tier 変更が必要 | Medium | Human | 2026-03-24 |
+現時点でオープンなループはありません。
+
+次のセッションで新規に発生したものをここに追加してください。
 
 ---
 
@@ -34,5 +31,9 @@
 | OL-006 | `scripts/ai/` なし | 2026-03-24 | PR #6, #11, #12, #13 で追加 |
 | OL-007 | origin/main より 2 commits 先行 | 2026-03-24 | PR #15–#17 で解消 |
 | OL-008 | 未ステージ変更 4 ファイル | 2026-03-24 | OL-014 として統合 |
-| OL-010 | OpenHands GitHub Action 未設定 | — | Day 10 タスクとして延期（スコープ外） |
+| OL-009 | LLM ライブテスト未実施 | 2026-03-24 | GitHub Actions Run #3 で OpenRouter 動作確認済み |
+| OL-010 | OpenHands GitHub Action 未設定 | 2026-03-24 | Haruki セットアップ完了 |
+| OL-011 | GitHub Secrets 未確認 | 2026-03-24 | Run #3 で FRED_API_KEY / SUPABASE_URL+KEY / GITHUB_TOKEN 全確認 |
+| OL-012 | Railway cron 未設定 | 2026-03-24 | Railway に `bash ops/run.sh` cron 設定完了 |
+| OL-013 | Supabase free tier cap | 2026-03-24 | Haruki が inactive project 削除 → project `igjggjagwixsfkouyyaw` active |
 | OL-014 | main に未 push コミット・未ステージ変更 | 2026-03-24 | PR #15, #16 で全解消 |
