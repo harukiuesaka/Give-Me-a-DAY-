@@ -31,13 +31,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
           else
-            # Extract issue number from comment's issue URL
             ISSUE_URL="${{ github.event.issue.url }}"
             NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
             echo "number=$NUMBER" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Auto-fix via Claude API
@@ -47,11 +44,11 @@ jobs:
           PAT_USERNAME: ${{ secrets.PAT_USERNAME }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ steps.issue_info.outputs.number }}
-          ISSUE_TITLE: ${{ steps.issue_info.outputs.title }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          python3 << 'PYEOF'
-          import os, json, subprocess, sys
+          python3 - << 'PYEOF'
+          import os, json, subprocess, sys, textwrap
           import urllib.request, urllib.error
 
           ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -63,24 +60,24 @@ jobs:
           ISSUE_BODY = os.environ.get("ISSUE_BODY", "")
 
           if not ISSUE_NUMBER or not ISSUE_TITLE:
-              print("No issue info available, skipping")
+              print("No issue info, skipping")
               sys.exit(0)
 
-          print(f"Fixing issue #{ISSUE_NUMBER}: {ISSUE_TITLE}")
+          print(f"Processing issue #{ISSUE_NUMBER}: {ISSUE_TITLE}")
 
-          # List relevant repo files
           result = subprocess.run(
-              ["git", "ls-files", "--", "*.md", "*.sh", "*.py", "*.yml", "*.yaml"],
+              ["git", "ls-files", "--", "*.md", "*.sh", "*.py", "*.yml"],
               capture_output=True, text=True
           )
           file_list = [f for f in result.stdout.strip().split("\n") if f][:40]
 
-          # Find files relevant to the issue
           keywords = (ISSUE_TITLE.lower() + " " + ISSUE_BODY.lower()).split()
           keywords = [k for k in keywords if len(k) > 3][:20]
           relevant = [f for f in file_list if any(k in f.lower() for k in keywords)]
           if not relevant:
-              relevant = [f for f in file_list if any(x in f.lower() for x in ["open_loop", "current_state", "session"])]
+              relevant = [f for f in file_list if any(
+                  x in f.lower() for x in ["open_loop", "current_state", "session"]
+              )]
           if not relevant:
               relevant = file_list[:5]
 
@@ -90,25 +87,28 @@ jobs:
                   with open(f, "r", encoding="utf-8", errors="replace") as fh:
                       file_contents[f] = fh.read()[:4000]
               except Exception as e:
-                  print(f"Warning: could not read {f}: {e}")
+                  print(f"Warning: {f}: {e}")
 
-          context_parts = [f"File: {k}\n```\n{v}\n```" for k, v in file_contents.items()]
-          context = "\n\n".join(context_parts)
+          context = "\n\n".join(
+              f"File: {k}\n```\n{v}\n```" for k, v in file_contents.items()
+          )
 
-          prompt = f"""You are an autonomous code agent. Fix this GitHub issue with a minimal file change.
-
-Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}
-
-Issue body:
-{ISSUE_BODY[:2000]}
-
-Relevant files:
-{context}
-
-Return ONLY a JSON object:
-{{"file": "path/to/file", "content": "complete new file content", "explanation": "one sentence"}}
-
-If no change needed: {{"file": null, "content": null, "explanation": "already resolved"}}"""
+          prompt_lines = [
+              "You are an autonomous code agent. Fix this GitHub issue with a minimal file change.",
+              "",
+              f"Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}",
+              "",
+              "Issue body:",
+              ISSUE_BODY[:2000],
+              "",
+              "Relevant files:",
+              context,
+              "",
+              'Return ONLY a JSON object: {"file": "path", "content": "full content", "explanation": "one sentence"}',
+              "",
+              'If no change needed: {"file": null, "content": null, "explanation": "already resolved"}',
+          ]
+          prompt = "\n".join(prompt_lines)
 
           payload = json.dumps({
               "model": "claude-haiku-4-5-20251001",
@@ -142,7 +142,7 @@ If no change needed: {{"file": null, "content": null, "explanation": "already re
                   text = text[:-3].strip()
 
           result_data = json.loads(text)
-          print(f"Claude: {result_data.get('explanation','')}")
+          print(f"Claude: {result_data.get('explanation', '')}")
 
           if not result_data.get("file") or not result_data.get("content"):
               print("No change needed.")
@@ -161,7 +161,8 @@ If no change needed: {{"file": null, "content": null, "explanation": "already re
           subprocess.run(["git", "config", "user.name", "OpenHands"], check=True)
           subprocess.run(["git", "checkout", "-b", branch_name], check=True)
           subprocess.run(["git", "add", target_file], check=True)
-          subprocess.run(["git", "commit", "-m", f"fix: issue #{ISSUE_NUMBER} — {result_data['explanation'][:60]}"], check=True)
+          commit_msg = f"fix: issue #{ISSUE_NUMBER} — {result_data['explanation'][:60]}"
+          subprocess.run(["git", "commit", "-m", commit_msg], check=True)
 
           remote_url = f"https://{PAT_USERNAME}:{PAT_TOKEN}@github.com/{REPO}.git"
           subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
@@ -187,7 +188,7 @@ If no change needed: {{"file": null, "content": null, "explanation": "already re
           )
           with urllib.request.urlopen(pr_req, timeout=30) as resp:
               pr_data = json.loads(resp.read().decode("utf-8"))
-          print(f"PR created: #{pr_data['number']} {pr_data['html_url']}")
+          print(f"PR: #{pr_data['number']} {pr_data['html_url']}")
 
           with open("/tmp/fix_result.json", "w") as f:
               json.dump({
