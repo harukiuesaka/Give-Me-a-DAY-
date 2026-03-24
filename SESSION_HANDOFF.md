@@ -1,79 +1,106 @@
 # SESSION_HANDOFF.md
 
-**最終更新**: 2026-03-24
-**セッション**: Day 2 — ops verification + bug fixes
+**最終更新**: 2026-03-24 (Session 3)
+**PR**: #17 merged
 
 ---
 
-## Done（このセッションで完了）
+## Done（Session 3）
 
-### PR #15: fix/ops-verification (merged)
-- `run_build_checks.sh` — double-run bug + exit code bug fixed
-- `generate_daily_report.sh` — error detection, Anthropic fallback, git push, Supabase write added
-- `write_run_state.py` — HTTP 204 accepted, `--dry-run` flag added
-- `ops/run.sh` — single one-command entry point with preflight
-- `.env.ops.example` — all ops env vars documented
-- `ops/RUNBOOK.md` — Railway/Supabase/Secrets setup + recovery steps
+### PR #17: refactor/ops-contract-v2
 
-### Verification
-- All scripts: `bash -n` syntax OK
-- `ops/run.sh --dry-run` in clean clone: preflight runs, exits 1 on missing key (correct)
-- `detect_architecture_drift.sh` + `detect_marketing_health.sh`: verified working in previous session
+**generate_daily_report.sh** — 役割をGenerationのみに絞る
+- collect() / sub-script呼び出しを削除（ops/run.shに移管）
+- Supabasewrite・git pushを削除（ops/run.shに移管）
+- PROVIDER FALLBACK POLICY コメントブロック追加（explicit）
+- /tmp/gmd_meta/ サイドカーファイルでステータストークンを渡す仕組み追加
 
-### Supabase attempt
-- Blocked: 3 inactive projects exist but free tier cap is 2. Cannot restore without human action.
-- `CURRENT_STATE.md` added to repo reflecting accurate system state.
+**ops/run.sh** — フルオーケストレーションオーナーに昇格
+- Step 2: DATA COLLECTION（sub-scripts呼び出し）
+- Step 4: ARTIFACT VALIDATION（run contract C2–C6）
+- Step 5: SUPABASE WRITE（generate scriptから移管）
+- Step 6: GIT COMMIT + PUSH（generate scriptから移管、GITHUB_TOKEN injectionで認証）
+- exit code修正: 0/1/2/3/4 明確化
+- dry-run時はSupabase/git両方スキップ
+
+**ops/RUNBOOK.md** — オペレーターグレード書き直し
+- 4ステップ activation sequence（各ステップの期待出力付き）
+- smoke test コマンド（コピペ可）
+- 障害ケース別の診断と修正方法
+
+**Verified in clean clone:**
+- `--check-only` no key → exit 1 ✅
+- `--dry-run` → exit 0, C2–C6 pass, 2197 bytes ✅
+- JSON payload artifact → exit 3, C4 caught ✅
+- 56-byte artifact → exit 3, C3 caught ✅
 
 ---
 
-## Open（次のセッションに持ち越し）
-
-- **[HUMAN_REQUIRED]** Supabase: delete 1 of 3 inactive projects → restore 1 → apply `ops/schemas/run_state_schema.sql` → add `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` to GitHub Secrets + Railway
-- **[HUMAN_REQUIRED]** OpenRouter: top up credits OR set `ANTHROPIC_API_KEY` in Railway env
-- **[HUMAN_REQUIRED]** Railway: configure `bash ops/run.sh` as cron with all required env vars
-- **[Claude - 次手]** `docs/architecture/current_system.md` 初版作成 (Day 3 タスク)
-- **[Claude - 次手]** End-to-end live test once LLM key is available in env
-
----
-
-## 次のセッションで貼る短縮ブロック
+## 次のセッション開始コピペ
 
 ```
-前回: PR #15 merge済み。run_build_checks.sh, generate_daily_report.sh, write_run_state.py の既知バグを全修正。ops/run.sh（ワンコマンド）+ .env.ops.example + ops/RUNBOOK.md を追加。Supabase は free tier cap でブロック。CURRENT_STATE.md を追加。
+前回: PR #17 merge済み。
+- ops/run.sh がフルオーケストレーションオーナーに。generate_daily_report.sh はGeneration専任。
+- run contract C2–C6（artifact validation）実装・検証済み。
+- RUNBOOK.md オペレーターグレードに書き直し。
 
-次の目的: [目的を1つ選んで記入]
-推奨: (a) Supabaseセットアップ後にエンドツーエンドテスト実行、または (b) docs/architecture/current_system.md 初版作成
-
-運用ルール:
-- 1ターン1目的 / 推測を事実として書かない / 不明点は UNKNOWN
-- main 直変更・課金・削除は人間確認
-- 毎回 [STATE][MODE][PLAN][OUTPUT][SESSION_HANDOFF] 形式で出力
-- CURRENT_STATE.md を外部記憶として参照
+次の目的: [1つ選ぶ]
+(a) ANTHROPIC_API_KEY を用意してエンドツーエンドライブテスト: bash ops/run.sh --skip-commit
+(b) Supabase セットアップ（free tier cap を解消してから）
+(c) Railway cron 設定
+(d) Week 2 タスク（OL-009, OL-012, OL-013 のいずれか）
 ```
 
 ---
 
-## Human Actions Needed（優先順）
+## HUMAN_REQUIRED（優先順）
 
-1. **Supabase account**: 3 inactive projects but 2-project limit. Either:
-   - Delete one project at https://supabase.com/dashboard
-   - Or upgrade tier
-   Then restore a project → apply `ops/schemas/run_state_schema.sql` → copy URL + service role key
-2. **LLM key for Railway**: Go to Railway dashboard → Give Me a DAY service → Variables → set `ANTHROPIC_API_KEY=sk-ant-...`
-3. **Railway cron command**: `bash ops/run.sh` (see `ops/RUNBOOK.md` for full setup)
-4. **Once LLM key is in env**: run `bash ops/run.sh --skip-commit` to verify report generation works before enabling push
+### 今すぐできる（1分）
+**エンドツーエンドライブテスト**:
+```bash
+cd Give-Me-a-DAY-
+source .env.ops   # ANTHROPIC_API_KEY を設定済みであること
+bash ops/run.sh --skip-commit
+# Expected: exit 0, "✅ Run contract satisfied"
+cat docs/reports/daily/$(date +%Y-%m-%d).md | head -30
+```
+
+### 外部セットアップが必要
+1. **Supabase**: supabase.com で inactive project を1件削除 → restore → SQL Editor で `ops/schemas/run_state_schema.sql` 実行
+2. **Railway**: New Project → `bash ops/run.sh` をcron `0 0 * * *` で設定 → Variables に env 追加
 
 ---
 
-## System Confidence (updated)
+## Smoke test（設定後にこれだけ実行すれば OK）
+
+```bash
+# Step 1: preflight
+bash ops/run.sh --check-only
+# expect: exit 0
+
+# Step 2: dry-run artifact validation
+bash ops/run.sh --dry-run
+# expect: exit 0, "✅ Run contract satisfied"
+
+# Step 3: live LLM (key required)
+bash ops/run.sh --skip-commit
+# expect: exit 0, report written
+
+# Step 4: full run
+bash ops/run.sh
+# expect: exit 0, Supabase write OK, pushed to main
+```
+
+---
+
+## System Confidence (Session 3 updated)
 
 | Area | Confidence | Basis |
-|---|---|---|
-| CI pipeline triggers correctly | HIGH | PR #7 verified in GitHub Actions |
-| Architecture drift detection | HIGH | Ran in clean clone, exits 0 |
-| Marketing health detection | HIGH | Ran in clean clone, exits 0, correct output |
-| Build check script logic | MEDIUM | Syntax verified, bugs fixed, not run against actual frontend build |
-| Daily report generation (logic) | MEDIUM | Bugs fixed, cannot test live (no LLM key in local env) |
-| Daily report generation (end-to-end) | LOW | Blocked by OpenRouter 0 credits + no Anthropic key in local env |
-| Supabase state write | LOW | Bugs fixed, cannot test (no project active) |
-| Railway cron | UNKNOWN | Not yet configured |
+|------|-----------|-------|
+| ops/run.sh orchestration logic | HIGH | verified in clean clone, exit codes confirmed |
+| Artifact validation C2–C6 | HIGH | injected fake artifacts, all checks triggered correctly |
+| generate_daily_report.sh structure | HIGH | syntax OK, dry-run path verified |
+| Provider fallback policy | HIGH | code is explicit; untested with real API keys |
+| LLM live call | LOW | no valid key available in test env |
+| Supabase write | LOW | blocked by free tier cap |
+| Railway cron end-to-end | UNKNOWN | not yet configured |

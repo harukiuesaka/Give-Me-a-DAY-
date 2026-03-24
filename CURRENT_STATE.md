@@ -1,96 +1,116 @@
 # CURRENT_STATE.md
 
-**最終更新**: 2026-03-24
-**セッション**: Day 2 — ops verification + bug fixes
+**最終更新**: 2026-03-24 (Session 3)
+**Session 3 PR**: #17 (refactor/ops-contract-v2)
 
 ---
 
-## System Status
+## Architecture: Responsibility Boundaries (post PR #17)
 
-| Component | Status | Verified |
+```
+ops/run.sh  ←── single orchestration owner
+├── [1] PREFLIGHT       env vars + required files
+├── [2] COLLECT         run sub-scripts → /tmp/gmd_*.md
+├── [3] GENERATE        call generate_daily_report.sh (LLM → file only)
+├── [4] VALIDATE        enforce contract C2–C6 on artifact
+├── [5] PERSIST         write_run_state.py → Supabase (optional)
+├── [6] COMMIT          git add + commit + push (optional)
+└── [7] SUMMARY         print outcome
+
+generate_daily_report.sh  ←── generation only
+├── reads /tmp/gmd_*.md (written by ops/run.sh)
+├── reads OPEN_LOOPS.md
+├── calls LLM (OpenRouter → Anthropic fallback → data template)
+├── writes docs/reports/daily/YYYY-MM-DD.md
+└── writes /tmp/gmd_meta/{build,drift,marketing}_status
+
+write_run_state.py  ←── persistence only
+└── inserts into Supabase run_logs (called by ops/run.sh)
+```
+
+---
+
+## Run Contract (ops/run.sh)
+
+A run is **SUCCESS (exit 0)** iff:
+- [C1] Preflight passed
+- [C2] Report file exists at `docs/reports/daily/YYYY-MM-DD.md`
+- [C3] Report size ≥ 200 bytes
+- [C4] Report does not start with `{` (JSON error payload rejected)
+- [C5] Report first line does not start with `ERROR:`
+- [C6] Report contains ≥ 2 `## ` section headers
+
+Optional steps (Supabase write, git push) do not affect the contract.
+
+Exit codes: 0=success, 1=preflight, 2=generate failed, 3=validation failed, 4=unexpected error
+
+---
+
+## Provider Fallback Policy (generate_daily_report.sh)
+
+| Order | Provider | Trigger for fallback |
+|-------|----------|---------------------|
+| 1 | OpenRouter | Response missing `choices` key (402, 429, 5xx, curl error) |
+| 2 | Anthropic direct | Response missing `type: message` (401, 429, 5xx, curl error) |
+| 3 | Data-only template | Both fail — always produces valid markdown, never writes JSON/ERROR: |
+
+---
+
+## Verified (this session)
+
+| Test | Method | Result |
 |---|---|---|
-| GitHub Actions CI (`.github/workflows/pr-build.yml`) | ✅ merged (PR #7) | ✅ end-to-end |
-| `scripts/ai/detect_architecture_drift.sh` | ✅ merged (PR #11) | ✅ runs in clean clone |
-| `scripts/ai/detect_marketing_health.sh` | ✅ merged (PR #12) | ✅ runs in clean clone |
-| `scripts/ai/run_build_checks.sh` | ✅ fixed (PR #15) | ✅ syntax OK |
-| `scripts/ai/generate_daily_report.sh` | ✅ fixed (PR #15) | ✅ syntax OK (LLM runtime blocked by missing key) |
-| `ops/scripts/write_run_state.py` | ✅ fixed (PR #15) | ✅ syntax OK |
-| `ops/run.sh` (single entry point) | ✅ new (PR #15) | ✅ preflight logic runs correctly |
-| `.env.ops.example` | ✅ new (PR #15) | — |
-| `ops/RUNBOOK.md` | ✅ new (PR #15) | — |
-| Supabase `run_logs` table | ⚠️ BLOCKED | HUMAN_REQUIRED (free tier cap) |
-| Railway cron | ⚠️ UNKNOWN | Not yet configured |
-| OpenRouter credits | ❌ DEPLETED | `sk-or-v1-eefd9a2e...` has 0 credits |
-| Anthropic API key (GitHub Secret) | ⚠️ UNKNOWN | Set in Secrets but not tested live |
-| FRED_API_KEY (GitHub Secret) | ⚠️ UNKNOWN | Set in Secrets but not tested live |
+| `--check-only` no key → exit 1 | live run in /tmp/gmd-inspect | ✅ |
+| `--dry-run` → exit 0, C2–C6 pass | live run, 2197 bytes, 7 headers | ✅ |
+| JSON payload artifact → exit 3 C4 | injected fake report | ✅ |
+| Too-small artifact → exit 3 C3 | injected 56-byte file | ✅ |
+| `bash -n` all scripts | syntax check | ✅ |
 
 ---
 
-## Bugs Fixed This Session (PR #15)
+## Verified (previous sessions)
 
-1. **`run_build_checks.sh`**: Double-ran build on failure → now captures output once  
-2. **`run_build_checks.sh`**: Exit 0 on failure → now exits 1 when any check fails  
-3. **`generate_daily_report.sh`**: Wrote `ERROR:...` string as report content → validates `choices` key  
-4. **`generate_daily_report.sh`**: No fallback when OpenRouter fails → Anthropic API direct fallback added  
-5. **`generate_daily_report.sh`**: Reports never reached repo → `git commit` + `git push` step added  
-6. **`generate_daily_report.sh`**: No Supabase write → `write_run_state.py` call added  
-7. **`write_run_state.py`**: Rejected HTTP 204 → 204 added to accepted codes  
-8. **`write_run_state.py`**: No dry-run mode → `--dry-run` flag added  
+| Component | Status |
+|---|---|
+| CI `.github/workflows/pr-build.yml` (PR #7) | ✅ verified in GitHub Actions |
+| `detect_architecture_drift.sh` (PR #11) | ✅ verified in clean clone |
+| `detect_marketing_health.sh` (PR #12) | ✅ verified in clean clone |
 
 ---
 
-## What Is Verified vs Present-Only
+## Present-only (not verified end-to-end)
 
-### Verified end-to-end (ran in clean `/tmp/gmd-verify/` clone)
-- `detect_architecture_drift.sh` — exits 0, writes `_last_drift_check.md`
-- `detect_marketing_health.sh` — exits 0, writes `_last_marketing_check.md`, outputs `concern` (expected: 0 logs)
-- `ops/run.sh --dry-run` — preflight runs, correctly rejects missing LLM key, exits 1
-
-### Syntax-verified only (bash -n / py_compile)
-- `run_build_checks.sh`
-- `generate_daily_report.sh`
-- `write_run_state.py`
-- `ops/run.sh`
-
-### Present-only (not verified)
-- `ops/run.sh` full run (blocked by missing LLM key in env)
-- `generate_daily_report.sh` LLM call (blocked by OpenRouter 0 credits)
-- Supabase state write (blocked by free tier cap)
+- LLM live call (needs valid ANTHROPIC_API_KEY or OpenRouter with credits)
+- Full run with git push (needs GITHUB_TOKEN + LLM key in same env)
+- Supabase write (blocked by free tier cap)
 - Railway cron (not yet configured)
 
 ---
 
-## Merged PRs (complete list)
+## HUMAN_REQUIRED Blockers (in priority order)
 
-| PR | Branch | Status |
-|---|---|---|
-| #7 | `feat/day2-ci-and-scripts` | ✅ merged |
-| #9 | (infra) | ✅ merged |
-| #10 | (infra) | ✅ merged |
-| #11 | `feat/architecture-drift-script` | ✅ merged |
-| #12 | `feat/marketing-health-script` | ✅ merged |
-| #13 | `feat/daily-report-script` | ✅ merged |
-| #14 | `feat/supabase-run-state` | ✅ merged |
-| #15 | `fix/ops-verification` | ✅ merged |
+1. **LLM key**: Set `ANTHROPIC_API_KEY` in Railway env  
+   → Then run: `bash ops/run.sh --skip-commit` to verify LLM works
+
+2. **Supabase**: Delete 1 of 3 inactive projects at https://supabase.com/dashboard  
+   → Restore 1 → apply `ops/schemas/run_state_schema.sql` → add `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+
+3. **Railway**: Configure `bash ops/run.sh` as cron  
+   → See `ops/RUNBOOK.md §3` for exact steps
 
 ---
 
-## HUMAN_REQUIRED Items (blocking)
+## Merged PRs (all)
 
-1. **Supabase**: Free tier has 3 inactive projects (2-project limit). Delete 1 or upgrade → restore a project → apply `ops/schemas/run_state_schema.sql` → add `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` to GitHub Secrets + Railway env
-2. **OpenRouter credits**: `sk-or-v1-eefd9a2e...` has 0 credits. Top up or set `ANTHROPIC_API_KEY` in Railway env instead
-3. **Railway cron**: Configure `bash ops/run.sh` as cron command with all env vars
-
----
-
-## Recommended Immediate Next Action
-
-```bash
-# After setting ANTHROPIC_API_KEY in environment:
-cd /path/to/Give-Me-a-DAY-
-export ANTHROPIC_API_KEY=sk-ant-...
-export GITHUB_TOKEN=ghp_...
-bash ops/run.sh --skip-commit   # First test: generate report, don't push
-# Verify report content looks correct
-bash ops/run.sh                  # Full run: generate + push
-```
+| PR | Description | Status |
+|----|-------------|--------|
+| #6 | initial docs structure | ✅ |
+| #7 | CI workflow | ✅ |
+| #8–#10 | docs: architecture, agents, templates | ✅ |
+| #11 | detect_architecture_drift.sh | ✅ |
+| #12 | detect_marketing_health.sh | ✅ |
+| #13 | generate_daily_report.sh (initial) | ✅ |
+| #14 | write_run_state.py + run_state_schema.sql | ✅ |
+| #15 | ops bug fixes (8 bugs) | ✅ |
+| #16 | CURRENT_STATE.md + SESSION_HANDOFF.md | ✅ |
+| #17 | ops contract refactor + artifact validation C2–C6 | ✅ |
