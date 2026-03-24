@@ -1,6 +1,6 @@
 # CURRENT_STATE.md
 
-**最終更新**: 2026-03-24 (Session 3 — final)
+**最終更新**: 2026-03-24 (Session 3 — 全タスク完了)
 **最終 PR**: #20 (fix/supabase-409-err-trap)
 
 ---
@@ -110,13 +110,17 @@ Exit codes: 0=success, 1=preflight, 2=generate failed, 3=validation failed, 4=un
 
 ---
 
-## Remaining Human Actions (Session 3 close)
+## Session 3 Checklist — 全完了
 
 | # | Item | Status |
 |---|------|--------|
-| ② | GitHub Labels (fix-me, agent-dev, agent-docs, agent-growth, needs-human-review, report-blocker, build-failure, architecture-drift, marketing-alert) | 🔲 Haruki 手動 |
-| ⑥ | Marketing logs: `docs/marketing/logs/` に施策ログ 1〜2本追加 → marketing_health が "unknown" のまま | 🔲 Haruki が内容を判断 |
-| ⑦ | OpenHands GitHub Action: OPENHANDS_API_KEY secret + LLM_MODEL/OPENHANDS_MAX_ITER/TARGET_BRANCH → fix-me label → issue→PR loop テスト | 🔲 Haruki セットアップ中 |
+| ① | ANTHROPIC_API_KEY (Railway + GitHub Secrets) | ✅ |
+| ② | GitHub Labels (fix-me, agent-dev etc.) | ✅ Haruki 完了 |
+| ③ | GitHub Secrets (全キー) | ✅ |
+| ④ | Supabase free tier cap 解消 | ✅ |
+| ⑤ | Railway cron 設定 | ✅ |
+| ⑥ | Marketing logs (`docs/marketing/logs/`, `weekly_kpi/`) | ✅ ベースライン記録済み (2026-03-24) |
+| ⑦ | OpenHands GitHub Action | ✅ Haruki 完了 |
 
 ---
 
@@ -126,3 +130,4 @@ Exit codes: 0=success, 1=preflight, 2=generate failed, 3=validation failed, 4=un
 - Railway: configured `bash ops/run.sh`, awaiting first natural trigger
 - Report lands at: `docs/reports/daily/YYYY-MM-DD.md` (pushed to main by workflow)
 - Supabase run_logs: project `igjggjagwixsfkouyyaw` (ap-southeast-2), confirmed recording
+- Marketing health: `weak signal` (1 log + 1 KPI, baseline recorded 2026-03-24)
