@@ -1,0 +1,48 @@
+# .github/workflows/issue-summary.yml
+# Purpose : Weekly issue summary — collect open issues + recent closed,
+#           output a summary markdown as an artifact.
+# Trigger : Every Monday 01:00 UTC (JST 10:00) + manual dispatch.
+
+name: Issue Summary
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"   # UTC Monday 01:00 = JST Monday 10:00
+  workflow_dispatch: {}
+
+jobs:
+  summarize-issues:
+    name: Summarize Issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Collect issue context
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -u +"%Y-%m-%d")
+          OUTPUT="docs/reports/weekly/issue-summary-${DATE}.md"
+          mkdir -p docs/reports/weekly
+          python3 scripts/ai/collect_issue_context.py \
+            --limit 30 \
+            --output "${OUTPUT}"
+          echo "Written: ${OUTPUT}"
+          cat "${OUTPUT}"
+
+      - name: Upload summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-summary-${{ github.run_id }}
+          path: docs/reports/weekly/issue-summary-*.md
+          retention-days: 90
