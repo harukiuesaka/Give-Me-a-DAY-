@@ -1,30 +1,38 @@
 # DECISIONS.md
 
-**最終更新**: 2026-03-24
+**Role**: Top-level directional decisions only. High-cost reversibility. Major operating and product judgments.
+**Truth precedence rank**: 2
+**Last updated**: 2026-03-24
+
+Do not add low-level implementation details here.
+For domain state, see `docs/state/`. For open items, see `OPEN_LOOPS.md`.
 
 ---
 
-## フォーマット
+## Format
 ```
 | ID | Decision | Reason | Evidence | Risk | Date |
 ```
 
 ---
 
-## 意思決定ログ
+## Active Decisions
 
 | ID | Decision | Reason | Evidence | Risk | Date |
 |----|---------|--------|---------|------|------|
-| D-001 | 2週間の目標を「最小ループ成立」に固定 | 完全自律化より、build/drift/marketing を毎朝読める状態を優先 | 実行計画 v2 §0 | スコープが広がる誘惑がある | 2026-03-24 |
-| D-002 | OpenHands 投入は Day 4〜5 以降 | repo truth layer が未整備な状態では AI 出力が散る | 実行計画 v2 §2-2 | 遅延リスク低（先に docs が必要だから） | 2026-03-24 |
-| D-003 | main への直接 push 禁止。全変更は branch / PR を経由 | main をクリーンに保ち、人間が merge 判断を持つ | 実行規約 §1 | 開発速度は落ちるが安全性を優先 | 2026-03-24 |
-| D-004 | secrets の実値は Claude が生成・保存しない | セキュリティ規約。漏洩リスク排除 | 実行規約 §7 | 設定が遅れる可能性 | 2026-03-24 |
+| D-001 | 2-week goal locked to "minimum loop establishment" | Prioritize readable daily build/drift/marketing over full automation | Execution plan v2 §0 | Scope expansion pressure | 2026-03-24 |
+| D-002 | OpenHands deferred until repo truth layer established | AI output scatters without grounded repo state | Execution plan v2 §2-2 | Low delay risk (docs needed first) | 2026-03-24 |
+| D-003 | No direct main push. All changes via branch/PR | Keep main clean; human holds merge judgment | Rule §1 | Slower development speed; acceptable | 2026-03-24 |
+| D-004 | AI never generates, stores, or copies secret values | Security policy. Eliminates leak risk | Rule §7 | Config delays possible | 2026-03-24 |
+| D-005 | v1 Paper Run only — no real-money execution | Legal risk mitigation. Real money requires full legal review before implementation | `docs/product/v1_boundary.md` | Product scope is narrow; acceptable | 2026-03-24 |
+| D-006 | State architecture refactored to AI-readable domain files | Repo must serve as stable operating context for AI agents | State Architecture Spec v1 | Transition cost; one-time | 2026-03-24 |
 
 ---
 
-## 却下した選択肢
+## Rejected Options
 
-| 却下内容 | 理由 | Date |
-|---------|------|------|
-| Day 1 から OpenHands を全面投入 | repo truth layer なしだと精度が落ちる。Day 4〜5 以降に変更 | 2026-03-24 |
-| Railway 常駐エージェントとして AI を運転 | Railway cron は短命タスク向け。常駐ランタイムには向かない | 2026-03-24 |
+| Rejected | Reason | Date |
+|---------|--------|------|
+| OpenHands full deployment from Day 1 | Repo truth layer not ready; accuracy degrades without grounded docs | 2026-03-24 |
+| Railway persistent agent runtime | Railway cron is for short-lived tasks; not suited for persistent runtime | 2026-03-24 |
+| Generic workflow automation as product wedge | Weakens investment validation focus; contradicts CLAUDE.md | 2026-03-24 |
