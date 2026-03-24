@@ -2,7 +2,7 @@
 
 **Role**: Parent index. Short overview by domain. Pointer map to detail files.
 **Truth precedence rank**: (inherits from `docs/state/*.md` — rank 3)
-**Last updated**: 2026-03-24 (Session 4)
+**Last updated**: 2026-03-24 (Session 5 — grounding audit)
 
 For rules and mission: → `SYSTEM_PRINCIPLES.md`
 For decisions: → `DECISIONS.md`
@@ -14,8 +14,8 @@ For decisions: → `DECISIONS.md`
 | Domain | State | Detail |
 |--------|-------|--------|
 | Product | v1 spec complete, backend implemented, no live users | → `docs/state/product.md` |
-| Engineering | Rounds 1–6.12 complete, CI active, no production deployment | → `docs/state/engineering.md` |
-| Ops | Daily cron confirmed (Run #3), OpenHands E2E confirmed (PR #22) | → `docs/state/ops.md` |
+| Engineering | Rounds 1–6.12 complete, CI green (run 23493826997), no production deployment | → `docs/state/engineering.md` |
+| Ops | ops/run.sh confirmed Run #3; Railway cron natural trigger unconfirmed | → `docs/state/ops.md` |
 | Marketing | Internal only, all external channels zero | → `docs/state/marketing.md` |
 | Agent Governance | 3 agents defined, guardrails active | → `docs/state/agent_governance.md` |
 | Risk | R-001 (no live users), R-003 (legal), R-010 (zero marketing) are top risks | → `docs/state/risk.md` |
@@ -43,11 +43,19 @@ Currently open:
 |----|-------|----------|-------|
 | OL-016 | Mom Test / customer validation | P1 | human |
 | OL-017 | LLM output quality verification (real runs) | P2 | agent |
-| OL-018 | CI green confirmation on latest HEAD | P2 | agent |
 | OL-019 | Railway cron natural trigger confirmation | P2 | agent |
-| OL-020 | State architecture implementation (this PR) | P0 | agent |
+| OL-020 | State architecture + grounding audit (two open PRs) | P0 | agent/human |
 
 ---
+
+## Recent Changes (Session 5)
+
+- Grounding audit pass: state files corrected for evidence discipline
+- `engineering.md`: model name corrected to `claude-sonnet-4-20250514`; Inferred/Observed labels added per-item
+- `ops.md`: cron natural trigger relabeled Unknown; Anthropic fallback relabeled Inferred
+- OL-018 closed: CI run 23493826997 confirmed green (Frontend Build ✅ + Backend Tests ✅)
+- OL-019 narrowed: 10 checked daily-report runs show no schedule event; still open
+- `fix/state-grounding-audit` PR opened on top of `feat/state-architecture-v1`
 
 ## Recent Changes (Session 4)
 

@@ -14,7 +14,7 @@ Track the state of the daily automation pipeline: report generation, CI, cron, s
 
 ## Current Confirmed State
 
-**Evidence label**: Observed (from GitHub Actions Run #3, CURRENT_STATE.md Session 3-4 records)
+**Evidence label**: Mixed — see per-item labels below. Not all items are uniformly Observed.
 
 ### Daily report pipeline
 | Component | Status | Evidence |
@@ -22,7 +22,7 @@ Track the state of the daily automation pipeline: report generation, CI, cron, s
 | `ops/run.sh` | ✅ Working | GitHub Actions Run #3 exit 0 confirmed |
 | Artifact validation C2–C6 | ✅ Working | Validated with injected fake reports + live run |
 | Provider fallback: OpenRouter first | ✅ Working | Run #3: OpenRouter used, 1781 bytes, 7 section headers |
-| Anthropic direct fallback | ✅ Working (config only) | Not triggered in Run #3 (OpenRouter succeeded) |
+| Anthropic direct fallback | ⚠️ Configured only (Inferred) | Not triggered in Run #3 (OpenRouter succeeded); actual fallback untested |
 | Data template fallback | ✅ Implemented | Code exists; not triggered in Run #3 |
 | Supabase write (run_logs) | ✅ Working | Run #3: HTTP 409 graceful (duplicate, non-fatal) |
 | Git push to main | ✅ Working | Run #3: report pushed to main |
@@ -39,9 +39,9 @@ A run is SUCCESS (exit 0) iff:
 Exit codes: 0=success, 1=preflight, 2=generate failed, 3=validation failed, 4=unexpected error
 
 ### GitHub Actions cron
-- Schedule: `0 0 * * *` UTC (confirmed in `.github/workflows/daily-report.yml`)
+- Schedule: `0 0 * * *` UTC — Observed: defined in `.github/workflows/daily-report.yml`
 - Trigger: daily + `workflow_dispatch`
-- Status: confirmed working
+- Natural trigger status: **Unknown** — last 10 checked `daily-report.yml` runs showed only `push` / `pull_request` events; no `schedule`-triggered run confirmed yet (see OL-019)
 
 ### OpenHands issue resolver
 - Workflow: `.github/workflows/openhands.yml`

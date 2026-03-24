@@ -1,7 +1,7 @@
 # OPEN_LOOPS.md
 
 **Role**: Full list of unresolved loops. Optimized for AI execution and closure.
-**Last updated**: 2026-03-24 (Session 4)
+**Last updated**: 2026-03-24 (Session 5 — grounding audit)
 
 ---
 
@@ -9,8 +9,8 @@
 
 | Category | Loops |
 |----------|-------|
-| Highest priority | OL-020 (P0 — state architecture), OL-016 (P1 — customer validation) |
-| Human-required | OL-016, OL-020 (merge), legal review (see `docs/state/risk.md` R-003) |
+| Highest priority | OL-020 (P0 — state architecture + audit PRs), OL-016 (P1 — customer validation) |
+| Human-required | OL-016, OL-020 (both PRs to merge), legal review (see `docs/state/risk.md` R-003) |
 | External-blocked | OL-016 (requires real interviews) |
 | Direction-risk | OL-016 (PMF unknown — all product direction is unvalidated until resolved) |
 
@@ -21,16 +21,16 @@
 ---
 
 ### OL-020
-**Title**: State architecture implementation (this PR)
+**Title**: State architecture + grounding audit (two open PRs)
 **Domain**: Engineering / Docs
 **Priority**: P0
 **Status**: in_progress
-**Owner**: agent
-**Blocker**: None — PR open, awaiting human merge
-**Next Action**: Human reviews and merges `feat/state-architecture-v1` PR
-**Unknowns**: None — all files created per spec
+**Owner**: agent / human (merge)
+**Blocker**: None — both PRs open, awaiting human merge
+**Next Action**: Human reviews and merges `feat/state-architecture-v1` (PR #23), then `fix/state-grounding-audit`
+**Unknowns**: None blocking — all files created and audited per spec
 **Related Files**: `SYSTEM_PRINCIPLES.md`, `docs/state/`, `CURRENT_STATE.md`, `OPEN_LOOPS.md`, `SESSION_HANDOFF.md`
-**Close Condition**: PR merged to main; all spec files present and role-correct
+**Close Condition**: Both PRs merged to main; all spec files present, role-correct, and evidence-labeled
 
 ---
 
@@ -63,20 +63,6 @@
 
 ---
 
-### OL-018
-**Title**: CI green confirmation on latest HEAD
-**Domain**: Engineering
-**Priority**: P2
-**Status**: open
-**Owner**: agent
-**Blocker**: None — can be triggered by agent via PR
-**Next Action**: Agent opens a no-op PR to trigger CI; records result in `docs/state/engineering.md`
-**Unknowns**: `backend/tests/` pass/fail on current HEAD; any regressions since Round 6.12
-**Related Files**: `docs/state/engineering.md`, `.github/workflows/pr-build.yml`
-**Close Condition**: CI run completes green on current HEAD; result recorded with Observed label
-
----
-
 ### OL-019
 **Title**: Railway cron natural trigger confirmation
 **Domain**: Ops
@@ -84,10 +70,11 @@
 **Status**: open
 **Owner**: agent (detect) / human (respond)
 **Blocker**: Waiting for UTC 00:00 natural trigger on Railway
-**Next Action**: Agent checks Railway logs after next UTC 00:00; records result in `docs/state/ops.md`
-**Unknowns**: Whether Railway cron fires correctly; whether `ops/run.sh` exits 0 on Railway environment
-**Related Files**: `docs/state/ops.md`, `ops/run.sh`
-**Close Condition**: At least 1 successful natural Railway cron run confirmed; exit code and report file existence verified
+**Next Action**: Agent checks Railway logs after next UTC 00:00; records exit code and trigger event type in `docs/state/ops.md`
+**Unknowns**: Whether Railway cron fires `bash ops/run.sh` correctly; whether exit code is 0 on Railway environment; whether generated report is pushed to repo
+**Observed so far**: Last 10 checked `daily-report.yml` GitHub Actions runs show only `push` / `pull_request` event types — no `schedule`-triggered run confirmed. Railway cron configured as `bash ops/run.sh` (not GitHub Actions).
+**Related Files**: `docs/state/ops.md`, `ops/run.sh`, Railway dashboard
+**Close Condition**: At least 1 natural Railway cron run confirmed with exit code 0 and report file in `docs/reports/daily/`; result recorded with Observed label
 
 ---
 
@@ -110,3 +97,4 @@
 | OL-013 | Supabase free tier cap | 2026-03-24 | Inactive project deleted; active project confirmed |
 | OL-014 | Unpushed commits / unstaged changes on main | 2026-03-24 | PRs #15, #16 |
 | OL-015 | OpenHands E2E test | 2026-03-24 | PR #22 merged (Session 4) |
+| OL-018 | CI green confirmation on latest HEAD | 2026-03-24 | CI run 23493826997: Frontend Build ✅ + Backend Tests ✅ on feat/state-architecture-v1 tip bdb668fa5 (same app code as main) |

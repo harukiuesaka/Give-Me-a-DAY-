@@ -14,18 +14,18 @@ Maintain the current engineering implementation state: what is built, where it l
 
 ## Current Confirmed State
 
-**Evidence label**: Observed (from `docs/implementation_status.md`, `docs/architecture/current_system.md`, GitHub Actions CI)
+**Evidence label**: See per-row labels below. Not all items are uniformly Observed.
 
 ### Stack
-| Layer | Technology | Entry Point |
-|-------|-----------|-------------|
-| Backend | FastAPI 0.104+ / Python 3.11+ / Pydantic v2 | `backend/src/main.py` |
-| Frontend | React 18 / TypeScript / Vite / TailwindCSS | `frontend/src/main.tsx` |
-| LLM | Anthropic Claude API (claude-sonnet-4-6) | `backend/src/llm/client.py` |
-| Persistence | In-memory store + Supabase run_logs | `backend/src/persistence/` |
-| CI | GitHub Actions `pr-build.yml` | `.github/workflows/pr-build.yml` |
+| Layer | Technology | Entry Point | Evidence |
+|-------|-----------|-------------|----------|
+| Backend | FastAPI 0.104+ / Python 3.11+ / Pydantic v2 | `backend/src/main.py` | Observed (files verified) |
+| Frontend | React 18 / TypeScript / Vite / TailwindCSS | `frontend/src/main.tsx` | Observed (files verified) |
+| LLM | Anthropic Claude API (`claude-sonnet-4-20250514`) | `backend/src/llm/client.py` | Observed (read `backend/src/llm/client.py` 2026-03-24: `self.model = "claude-sonnet-4-20250514"`) |
+| Persistence | In-memory store + Supabase run_logs | `backend/src/persistence/` | Observed (files exist; Supabase write confirmed Run #3) |
+| CI | GitHub Actions `pr-build.yml` | `.github/workflows/pr-build.yml` | Observed (CI run 23493826997 green on feat/state-architecture-v1 tip bdb668fa5) |
 
-### Backend pipeline (Observed: tests pass)
+### Backend pipeline
 ```
 [1] GoalIntake → [2] DomainFramer → [3] ResearchSpecCompiler
 → [4] CandidateGenerator → [5] EvidencePlanner → [6] ValidationPlanner
@@ -33,14 +33,16 @@ Maintain the current engineering implementation state: what is built, where it l
 → [10] ComparisonEngine → [11] AuditEngine → [12] RecommendationEngine
 → PresentationBuilder
 ```
-All 12 steps implemented through Round 6.12.
+All 12 steps implemented through Round 6.12. (Observed: files exist. Inferred: no re-run of full test suite after Round 6.12 changes.)
 
-### Confirmed working
-- Backend pytest: passing (local, pre-Round 6.12)
-- Frontend build: `frontend/dist/` exists (past successful build)
-- CI: `pr-build.yml` triggers on PR, confirmed active
-- LLM client: `claude-sonnet-4-6` confirmed in `backend/src/llm/client.py`
-- Companion AI v1: T1–T7 triggers, CON-01–CON-06 contradiction detection implemented
+### Confirmed working (with evidence labels)
+| Item | Evidence label | Source |
+|------|---------------|--------|
+| Backend pytest passing | Inferred | Last explicitly verified 2026-03-18; no re-run confirmed since |
+| Frontend build dist/ exists | Inferred | Past successful build; not re-triggered on latest HEAD |
+| CI `pr-build.yml` triggers on PR | Observed | Run 23493826997: Frontend Build ✅ Backend Tests ✅ |
+| LLM model: `claude-sonnet-4-20250514` | Observed | Read `backend/src/llm/client.py` directly 2026-03-24 |
+| Companion AI v1 T1–T7 / CON-01–CON-06 | Inferred | Implemented per docs; not independently re-tested post-merge |
 
 ### Code-truth locations
 | Component | Location |
@@ -59,9 +61,8 @@ All 12 steps implemented through Round 6.12.
 
 | Unknown | Notes |
 |---------|-------|
-| CI green/red on latest main | No confirmed recent CI run result in state files |
 | Live deployment | No production server confirmed. Railway used for ops cron only |
-| Backend tests on latest HEAD | `implementation_status.md` last updated 2026-03-18 |
+| Backend tests on current HEAD | `implementation_status.md` last updated 2026-03-18; changes merged post-Round 6.12 not re-verified |
 | Frontend tests | No frontend test suite confirmed |
 | Real LLM calls in pipeline | Tests use mocks/fallbacks; live LLM quality not validated end-to-end |
 | Supabase schema for run_state | `run_state_schema.sql` exists; live migration status unknown |
@@ -71,7 +72,6 @@ All 12 steps implemented through Round 6.12.
 ## Related Open Loops
 
 - OL-017: LLM output quality verification — real runs not yet tested
-- OL-018: CI status on latest HEAD
 
 ---
 
@@ -81,7 +81,7 @@ All 12 steps implemented through Round 6.12.
 |------|-------|-------|
 | Backend test regression | Medium | Last verified 2026-03-18; changes since then not re-verified |
 | No production deployment | High | Product has no live users |
-| LLM API cost at scale | Medium | claude-sonnet-4-6 per-call cost in full pipeline runs |
+| LLM API cost at scale | Medium | `claude-sonnet-4-20250514` per-call cost in full pipeline runs |
 
 ---
 
