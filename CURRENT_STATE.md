@@ -2,7 +2,7 @@
 
 **Role**: Parent index. Short overview by domain. Pointer map to detail files.
 **Truth precedence rank**: (inherits from `docs/state/*.md` — rank 3)
-**Last updated**: 2026-03-24 (Session 5 — grounding audit)
+**Last updated**: 2026-03-24 (Session 5 — eval package)
 
 For rules and mission: → `SYSTEM_PRINCIPLES.md`
 For decisions: → `DECISIONS.md`
@@ -14,7 +14,7 @@ For decisions: → `DECISIONS.md`
 | Domain | State | Detail |
 |--------|-------|--------|
 | Product | v1 spec complete, backend implemented, no live users | → `docs/state/product.md` |
-| Engineering | Rounds 1–6.12 complete, CI green (run 23493826997), no production deployment | → `docs/state/engineering.md` |
+| Engineering | Rounds 1–6.12 complete, CI green; eval framework defined, first run pending | → `docs/state/engineering.md` |
 | Ops | ops/run.sh confirmed Run #3; Railway cron natural trigger unconfirmed | → `docs/state/ops.md` |
 | Marketing | Internal only, all external channels zero | → `docs/state/marketing.md` |
 | Agent Governance | 3 agents defined, guardrails active | → `docs/state/agent_governance.md` |
@@ -41,21 +41,29 @@ Currently open:
 
 | ID | Title | Priority | Owner |
 |----|-------|----------|-------|
+| OL-021 | LLM eval package — PR open, first run pending | P1 | agent/human |
+| OL-017 | LLM first eval run (framework defined, not yet executed) | P1 | agent |
 | OL-016 | Mom Test / customer validation | P1 | human |
-| OL-017 | LLM output quality verification (real runs) | P2 | agent |
 | OL-019 | Railway cron natural trigger confirmation | P2 | agent |
-| OL-020 | State architecture + grounding audit (two open PRs) | P0 | agent/human |
 
 ---
 
-## Recent Changes (Session 5)
+## Recent Changes (Session 5 — eval package)
+
+- PR #23 (state architecture) and PR #24 (grounding audit) merged to main
+- OL-020 closed
+- LLM eval package added: `docs/evals/llm_quality_eval.md`, `evals/llm_quality_cases.json`, `evals/results/README.md`
+- OL-017 upgraded P2 → P1: eval target, rubric, test set, procedure now defined
+- OL-021 opened: eval PR merge + first run
+- `feat/eval-layer` PR open
+
+## Recent Changes (Session 5 — grounding audit)
 
 - Grounding audit pass: state files corrected for evidence discipline
 - `engineering.md`: model name corrected to `claude-sonnet-4-20250514`; Inferred/Observed labels added per-item
 - `ops.md`: cron natural trigger relabeled Unknown; Anthropic fallback relabeled Inferred
 - OL-018 closed: CI run 23493826997 confirmed green (Frontend Build ✅ + Backend Tests ✅)
 - OL-019 narrowed: 10 checked daily-report runs show no schedule event; still open
-- `fix/state-grounding-audit` PR opened on top of `feat/state-architecture-v1`
 
 ## Recent Changes (Session 4)
 

@@ -1,25 +1,26 @@
 # SESSION_HANDOFF.md
 
 **Role**: Startup file for next AI session. Latest only.
-**Last updated**: 2026-03-24 (Session 5 — grounding audit PR open)
+**Last updated**: 2026-03-24 (Session 5 — eval package PR open)
 
 ---
 
-**Mode**: Docs / Architecture
-**Branches**: `feat/state-architecture-v1` (PR #23) + `fix/state-grounding-audit` (new PR, based on PR #23)
+**Mode**: Engineering / Eval
+**Branch**: `feat/eval-layer` (PR open — grounding audit cherry-pick + eval package)
 
 **Now**:
-1. Human: merge `feat/state-architecture-v1` (PR #23) first
-2. Human: then merge `fix/state-grounding-audit` (grounding audit corrections)
-3. Next session: pick from OL-016 (Mom Test), OL-017 (LLM quality), or OL-019 (Railway confirm)
+1. Human: merge `feat/eval-layer` PR (closes OL-021 first phase)
+2. Agent: execute first eval run per `docs/evals/llm_quality_eval.md`; record outputs in `evals/results/`
+3. Agent: update `docs/state/engineering.md` with Observed scores; update OL-017 status
 
-**Success**: Both PRs merged; `SYSTEM_PRINCIPLES.md`, `docs/state/`, all refactored files on main; evidence labels accurate
+**Success**: PR merged; first eval run executed; per-module scores recorded with Observed label; OL-017 has real data
 
 **Read First**:
 1. `SYSTEM_PRINCIPLES.md`
 2. `CURRENT_STATE.md`
 3. `OPEN_LOOPS.md`
+4. `docs/evals/llm_quality_eval.md` — eval procedure
 
-**Unknown**: Railway cron natural trigger unconfirmed (OL-019). ANTHROPIC_API_KEY 400 root cause unresolved (hypothesis: stale key; current key confirmed working).
+**Unknown**: DomainFramer / CandidateGenerator / ValidationPlanner actual quality scores (not yet run). Railway cron natural trigger unconfirmed (OL-019).
 
-**Human Required**: Both PR merges. Any external outreach (OL-016).
+**Human Required**: PR merge. Any external outreach (OL-016).

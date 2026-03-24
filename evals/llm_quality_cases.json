@@ -1,0 +1,323 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "created": "2026-03-24",
+    "description": "Compact real-input test set for Give Me a DAY LLM quality evaluation.",
+    "usage": "Each case defines inputs for one pipeline module call. Use with docs/evals/llm_quality_eval.md rubric.",
+    "case_count": 12,
+    "modules_covered": ["DomainFramer", "CandidateGenerator", "ValidationPlanner"]
+  },
+
+  "cases": [
+
+    {
+      "case_id": "DF-01",
+      "module": "DomainFramer",
+      "scenario_label": "normal — standard factor strategy",
+      "description": "Straightforward momentum factor goal; archetype should be FACTOR; claims should be specific.",
+      "input": {
+        "raw_goal": "日本株のモメンタムファクター戦略を構築したい。過去12ヶ月リターンで上位20%の銘柄に投資し、毎月リバランスする。",
+        "goal_summary": "日本株モメンタムファクターの有効性検証",
+        "success_definition": "年率リターン8%以上、シャープレシオ0.8以上",
+        "risk_preference": "medium",
+        "must_not_do": []
+      },
+      "expected_qualities": [
+        "archetype = FACTOR",
+        "reframed_problem identifies the research question (not just paraphrases the goal)",
+        "testable_claims has premise/core/practical layers each with measurable falsification_condition",
+        "falsification_condition references numeric thresholds (e.g., Sharpe ratio, p-value)",
+        "regime_dependencies includes at least trend-regime and volatility-regime",
+        "comparable_known_approaches references a real approach (e.g., Jegadeesh and Titman 1993)"
+      ],
+      "key_failure_risks": [
+        "falsification_condition is circular (e.g., 'returns are not positive')",
+        "archetype is UNCLASSIFIED despite clear keyword signals",
+        "comparable_known_approach is fabricated"
+      ]
+    },
+
+    {
+      "case_id": "DF-02",
+      "module": "DomainFramer",
+      "scenario_label": "normal — stat arb / pairs trading",
+      "description": "Pairs trading goal; archetype should be STAT_ARB; falsification must involve spread behavior.",
+      "input": {
+        "raw_goal": "トヨタとホンダのペアトレーディング戦略を検証したい。スプレッドの平均回帰を利用して、コインテグレーション関係が存在するかを確認したい。",
+        "goal_summary": "トヨタ・ホンダ間のコインテグレーションを利用したペアトレード戦略の検証",
+        "success_definition": "シャープレシオ1.0以上、最大ドローダウン15%以内",
+        "risk_preference": "low",
+        "must_not_do": ["overnight position", "レバレッジ3倍以上"]
+      },
+      "expected_qualities": [
+        "archetype = STAT_ARB",
+        "reframed_problem frames the cointegration question as a testable hypothesis",
+        "testable_claims include a premise about cointegration existence",
+        "falsification_condition for cointegration claim references a statistical test (e.g., ADF test, p-value)",
+        "must_not_do constraints are reflected in critical_assumptions or constraints"
+      ],
+      "key_failure_risks": [
+        "archetype = FACTOR instead of STAT_ARB",
+        "cointegration falsification condition is vague ('relationship does not exist')",
+        "must_not_do constraints ignored in output"
+      ]
+    },
+
+    {
+      "case_id": "DF-03",
+      "module": "DomainFramer",
+      "scenario_label": "edge case — ambiguous goal (HYBRID or UNCLASSIFIED)",
+      "description": "Deliberately ambiguous goal mixing macro and ML. Should produce HYBRID or justified UNCLASSIFIED; claims should still be specific.",
+      "input": {
+        "raw_goal": "金利の変動をLSTMで予測して、それをもとに米国債と株式のアセットアロケーションを動的に変更したい。",
+        "goal_summary": "LSTMによる金利予測に基づく動的アセットアロケーション戦略の構築",
+        "success_definition": "Buy-and-hold比で最大ドローダウンを30%削減",
+        "risk_preference": "low",
+        "must_not_do": []
+      },
+      "expected_qualities": [
+        "archetype is HYBRID or ML_SIGNAL (not UNCLASSIFIED — there are clear signals)",
+        "reframed_problem distinguishes the prediction task from the allocation task",
+        "testable_claims include one about ML prediction accuracy and one about allocation improvement",
+        "regime_dependencies includes interest rate regime and equity risk regime separately"
+      ],
+      "key_failure_risks": [
+        "archetype = UNCLASSIFIED despite clear strategy signals",
+        "testable_claims collapse ML prediction and allocation into a single undifferentiated claim",
+        "falsification_condition does not reference prediction accuracy metric"
+      ]
+    },
+
+    {
+      "case_id": "DF-04",
+      "module": "DomainFramer",
+      "scenario_label": "failure-prone — vague input with no success definition",
+      "description": "Minimal user input; should still produce structured output, not garbage. Tests robustness of framing under poor input.",
+      "input": {
+        "raw_goal": "良い株式投資戦略を作りたい。",
+        "goal_summary": "良い株式投資戦略の作成",
+        "success_definition": "",
+        "risk_preference": "medium",
+        "must_not_do": []
+      },
+      "expected_qualities": [
+        "archetype should be UNCLASSIFIED (not forced into FACTOR or other type without evidence)",
+        "reframed_problem should identify that success definition is missing and propose a default",
+        "testable_claims are generic but still have measurable falsification_conditions",
+        "output does not hallucinate specific strategies not mentioned in input"
+      ],
+      "key_failure_risks": [
+        "archetype = FACTOR or other specific type with no basis in the input",
+        "reframed_problem is a near-identical paraphrase of the raw goal",
+        "falsification_conditions are absent because input is vague"
+      ]
+    },
+
+    {
+      "case_id": "CG-01",
+      "module": "CandidateGenerator",
+      "scenario_label": "normal — generate 3 candidates for momentum FACTOR",
+      "description": "Standard candidate generation for a FACTOR goal. Tests diversity and risk specificity.",
+      "input": {
+        "archetype": "FACTOR",
+        "reframed_problem": "日本株において12ヶ月モメンタムファクターが有意なリスク調整後リターンプレミアムを生むか",
+        "core_hypothesis": "過去12ヶ月リターン上位銘柄への集中投資はベンチマーク対比で有意なアルファを生む",
+        "constraints": "時間: 3ヶ月, ツール: Python, pandas, backtesting.py",
+        "forbidden_behaviors": ["live trading", "実銭取引"]
+      },
+      "expected_qualities": [
+        "exactly 3 candidates: baseline, conservative, exploratory",
+        "baseline is simplest known approach (e.g., raw 12-month return sort)",
+        "exploratory is genuinely different (e.g., momentum with different lookback, risk-adjusted signal, or sector-neutral)",
+        "known_risks per candidate ≥ 2 and specific (not 'market risk' or 'general uncertainty')",
+        "core_assumptions per candidate has non-empty failure_impact",
+        "no candidate includes live trading or real money"
+      ],
+      "key_failure_risks": [
+        "all 3 candidates are variations of '12-month return sort' with different window lengths only",
+        "known_risks is ['市場リスク', 'パフォーマンスの不確実性'] — generic boilerplate",
+        "failure_impact is empty or 'impact is significant'"
+      ]
+    },
+
+    {
+      "case_id": "CG-02",
+      "module": "CandidateGenerator",
+      "scenario_label": "normal — generate 3 candidates for STAT_ARB with strict constraints",
+      "description": "Tests that forbidden_behaviors constraint is respected in all 3 candidates.",
+      "input": {
+        "archetype": "STAT_ARB",
+        "reframed_problem": "トヨタ・ホンダ間のコインテグレーション関係を利用した統計的裁定が実行可能か",
+        "core_hypothesis": "両銘柄のスプレッドは平均回帰し、シグナル駆動の売買で正のネットリターンが得られる",
+        "constraints": "時間: 2週間, ツール: Python, statsmodels",
+        "forbidden_behaviors": ["overnight position", "レバレッジ3倍以上", "空売り禁止銘柄の空売り"]
+      },
+      "expected_qualities": [
+        "all 3 candidates avoid overnight positions",
+        "no candidate uses leverage > 3x",
+        "exploratory candidate is still within constraints (e.g., intraday variation, different pairs)",
+        "validation_burden accurately reflects statsmodels-based cointegration testing (medium, not low)"
+      ],
+      "key_failure_risks": [
+        "at least 1 candidate architecture_outline contains overnight holding",
+        "exploratory candidate suggests leverage not permitted",
+        "validation_burden = low despite cointegration tests being non-trivial"
+      ]
+    },
+
+    {
+      "case_id": "CG-03",
+      "module": "CandidateGenerator",
+      "scenario_label": "edge case — rejection constraint active",
+      "description": "Tests behavior when a prior approach has been rejected. Output should not re-propose the rejected approach.",
+      "input": {
+        "archetype": "FACTOR",
+        "reframed_problem": "日本株において代替ファクターが有意なプレミアムを持つか（モメンタム単純ソートは棄却済み）",
+        "core_hypothesis": "シンプルなモメンタムソートを超えるファクターシグナルが存在する",
+        "constraints": "時間: 2ヶ月, ツール: Python",
+        "forbidden_behaviors": [],
+        "rejection_constraints": [
+          "単純12ヶ月リターンソートによるモメンタム戦略（過学習リスクが高いため棄却）"
+        ]
+      },
+      "expected_qualities": [
+        "no candidate replicates 'simple 12-month return sort'",
+        "candidates propose genuinely different approaches (e.g., multi-factor, risk-adjusted momentum, quality overlay)",
+        "candidates still meet type diversity requirement (baseline / conservative / exploratory)"
+      ],
+      "key_failure_risks": [
+        "baseline candidate is still '12ヶ月リターンソート' despite rejection constraint",
+        "all candidates ignore the rejection note",
+        "type diversity requirement violated in attempt to avoid rejected approach"
+      ]
+    },
+
+    {
+      "case_id": "VP-01",
+      "module": "ValidationPlanner",
+      "scenario_label": "normal — plan for FACTOR baseline candidate",
+      "description": "Tests that all 4 required test types are present and failure_conditions are measurable.",
+      "input": {
+        "candidate_name": "12ヶ月モメンタムソート戦略（ベースライン）",
+        "candidate_type": "baseline",
+        "archetype": "FACTOR",
+        "coverage_percentage": 75,
+        "gap_severity": "manageable"
+      },
+      "expected_qualities": [
+        "all 4 required tests present: offline_backtest, out_of_sample, walk_forward, regime_split",
+        "each test has ≥ 1 failure_condition",
+        "failure_conditions contain numeric thresholds or measurable criteria (e.g., 'Sharpe ratio < 0.5', 'out-of-sample drawdown > 30%')",
+        "no failure_condition is trivially trivial (e.g., 'return is negative' or 'loss > 100%')",
+        "offline_backtest listed as prerequisite for other tests"
+      ],
+      "key_failure_risks": [
+        "failure_conditions = ['パフォーマンスが悪い', '損失が大きい'] — not measurable",
+        "regime_split test is missing",
+        "failure_conditions reference only gross return, not risk-adjusted metrics"
+      ]
+    },
+
+    {
+      "case_id": "VP-02",
+      "module": "ValidationPlanner",
+      "scenario_label": "normal — plan for ML_SIGNAL exploratory candidate (higher burden)",
+      "description": "High validation_burden candidate should trigger sensitivity test. Failure_conditions must reference model-specific metrics.",
+      "input": {
+        "candidate_name": "LSTMシグナルによる動的アロケーション（探索的）",
+        "candidate_type": "exploratory",
+        "archetype": "ML_SIGNAL",
+        "coverage_percentage": 60,
+        "gap_severity": "manageable"
+      },
+      "expected_qualities": [
+        "all 4 required tests present plus sensitivity test (required when validation_burden >= medium)",
+        "failure_conditions for ML-specific risks (e.g., 'out-of-sample prediction accuracy < baseline naive model')",
+        "sensitivity test covers hyperparameter sensitivity",
+        "walk_forward test specifically addresses temporal leakage risk"
+      ],
+      "key_failure_risks": [
+        "sensitivity test absent despite high/medium validation_burden",
+        "failure_conditions don't reference model prediction accuracy",
+        "temporal leakage risk not addressed in any test"
+      ]
+    },
+
+    {
+      "case_id": "VP-03",
+      "module": "ValidationPlanner",
+      "scenario_label": "failure-prone — blocking gap severity",
+      "description": "When gap_severity = 'blocking', the validation plan should reflect that and not pretend the plan is executable.",
+      "input": {
+        "candidate_name": "代替データ活用型イベント戦略（探索的）",
+        "candidate_type": "exploratory",
+        "archetype": "ALT_DATA",
+        "coverage_percentage": 35,
+        "gap_severity": "blocking"
+      },
+      "expected_qualities": [
+        "plan acknowledges the blocking gap in method_summary or purpose of at least one test",
+        "failure_conditions include a data-availability condition (e.g., 'if alternative data not available, abort')",
+        "plan does not pretend full execution is possible with 35% evidence coverage",
+        "estimated_effort for all tests is medium or high — not low"
+      ],
+      "key_failure_risks": [
+        "plan proceeds as if gap_severity = manageable; no mention of blocking condition",
+        "failure_conditions don't include data availability check",
+        "estimated_effort = low across the board despite 35% coverage"
+      ]
+    },
+
+    {
+      "case_id": "DF-05",
+      "module": "DomainFramer",
+      "scenario_label": "failure-prone — high hallucination risk (alt data strategy)",
+      "description": "ALT_DATA goal is high risk for hallucinated dataset names and fabricated outcomes. Tests non-hallucination.",
+      "input": {
+        "raw_goal": "Twitterのセンチメントデータを使って日本株の短期価格変動を予測する戦略を作りたい。",
+        "goal_summary": "SNSセンチメントを利用した日本株短期予測戦略の検証",
+        "success_definition": "シャープレシオ1.5以上",
+        "risk_preference": "high",
+        "must_not_do": []
+      },
+      "expected_qualities": [
+        "archetype = ALT_DATA or ML_SIGNAL (not FACTOR)",
+        "comparable_known_approaches references real published work (e.g., Bollen et al. 2011, or similar)",
+        "known_outcome for comparable approaches is accurate or explicitly states 'mixed results'",
+        "regime_dependencies includes 'social media data availability' or 'platform policy changes' as a regime risk",
+        "critical_assumptions includes data access and survivorship considerations"
+      ],
+      "key_failure_risks": [
+        "comparable_known_approaches invents strategy names or Sharpe ratios",
+        "known_outcome claims specific fabricated performance figures",
+        "no mention of Twitter API access constraints or data quality issues"
+      ]
+    },
+
+    {
+      "case_id": "CG-04",
+      "module": "CandidateGenerator",
+      "scenario_label": "failure-prone — MACRO archetype with minimal tooling",
+      "description": "Tests whether candidates are appropriately scoped to stated tooling constraints (no Bloomberg, no proprietary data).",
+      "input": {
+        "archetype": "MACRO",
+        "reframed_problem": "金利・VIX・為替の変動からセクターローテーション戦略を構築できるか",
+        "core_hypothesis": "マクロ指標の変化がセクター相対リターンを先行する",
+        "constraints": "時間: 1ヶ月, ツール: Python, yfinance（フリーデータのみ）",
+        "forbidden_behaviors": ["Bloombergデータ使用", "有料データAPI使用"]
+      },
+      "expected_qualities": [
+        "all 3 candidates use only free data sources (yfinance, FRED, or equivalent)",
+        "no candidate architecture_outline references Bloomberg or paid data providers",
+        "required_inputs lists only freely available data",
+        "implementation_complexity accounts for free-data limitations"
+      ],
+      "key_failure_risks": [
+        "exploratory candidate requires Bloomberg terminal data",
+        "required_inputs includes 'institutional flow data' or 'FactSet' without flagging as unavailable",
+        "validation_burden = low despite macro data preprocessing complexity"
+      ]
+    }
+
+  ]
+}
