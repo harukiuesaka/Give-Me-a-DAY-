@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   auto-fix:
-    if: |
+    if: >-
       (github.event_name == 'issues' && github.event.label.name == 'fix-me') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@openhands-agent'))
     runs-on: ubuntu-latest
@@ -26,24 +26,38 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 1
 
+      - name: Resolve issue number
+        id: issue_info
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
+          else
+            # Extract issue number from comment's issue URL
+            ISSUE_URL="${{ github.event.issue.url }}"
+            NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+            echo "number=$NUMBER" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.issue.title }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Auto-fix via Claude API
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           PAT_USERNAME: ${{ secrets.PAT_USERNAME }}
           REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.comment.issue_url && github.event.comment.issue_url || '' }}
-          ISSUE_TITLE: ${{ github.event.issue.title || '' }}
-          ISSUE_BODY: ${{ github.event.issue.body || '' }}
+          ISSUE_NUMBER: ${{ steps.issue_info.outputs.number }}
+          ISSUE_TITLE: ${{ steps.issue_info.outputs.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           python3 << 'PYEOF'
           import os, json, subprocess, sys
           import urllib.request, urllib.error
 
-          ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
-          PAT_TOKEN = os.environ["PAT_TOKEN"]
+          ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+          PAT_TOKEN = os.environ.get("PAT_TOKEN", "")
           PAT_USERNAME = os.environ.get("PAT_USERNAME", "")
-          REPO = os.environ["REPO"]
+          REPO = os.environ.get("REPO", "")
           ISSUE_NUMBER = os.environ.get("ISSUE_NUMBER", "")
           ISSUE_TITLE = os.environ.get("ISSUE_TITLE", "")
           ISSUE_BODY = os.environ.get("ISSUE_BODY", "")
@@ -54,21 +68,19 @@ jobs:
 
           print(f"Fixing issue #{ISSUE_NUMBER}: {ISSUE_TITLE}")
 
-          # ── List repo files (top-level + docs/) ──────────────────────────
+          # List relevant repo files
           result = subprocess.run(
-              ["git", "ls-files", "--", "*.md", "*.sh", "*.py", "*.yml", "*.yaml", "*.json"],
+              ["git", "ls-files", "--", "*.md", "*.sh", "*.py", "*.yml", "*.yaml"],
               capture_output=True, text=True
           )
           file_list = [f for f in result.stdout.strip().split("\n") if f][:40]
 
-          # ── Read files likely relevant to the issue ──────────────────────
-          keywords = ISSUE_TITLE.lower().split() + ISSUE_BODY.lower().split()[:20]
-          relevant = []
-          for f in file_list:
-              if any(k in f.lower() for k in keywords if len(k) > 3):
-                  relevant.append(f)
+          # Find files relevant to the issue
+          keywords = (ISSUE_TITLE.lower() + " " + ISSUE_BODY.lower()).split()
+          keywords = [k for k in keywords if len(k) > 3][:20]
+          relevant = [f for f in file_list if any(k in f.lower() for k in keywords)]
           if not relevant:
-              relevant = [f for f in file_list if "open_loop" in f.lower() or "current_state" in f.lower() or "session" in f.lower()]
+              relevant = [f for f in file_list if any(x in f.lower() for x in ["open_loop", "current_state", "session"])]
           if not relevant:
               relevant = file_list[:5]
 
@@ -80,33 +92,23 @@ jobs:
               except Exception as e:
                   print(f"Warning: could not read {f}: {e}")
 
-          # ── Call Claude ──────────────────────────────────────────────────
           context_parts = [f"File: {k}\n```\n{v}\n```" for k, v in file_contents.items()]
           context = "\n\n".join(context_parts)
 
-          prompt = f"""You are an autonomous code agent. Your job is to fix a GitHub issue by making the minimal necessary file change.
+          prompt = f"""You are an autonomous code agent. Fix this GitHub issue with a minimal file change.
 
 Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}
 
 Issue body:
 {ISSUE_BODY[:2000]}
 
-Current file contents (relevant files):
+Relevant files:
 {context}
 
-Instructions:
-1. Identify the single file that needs to be changed to resolve this issue.
-2. Return ONLY a JSON object with this exact structure:
-{{
-  "file": "path/to/file.md",
-  "content": "complete new file content here",
-  "explanation": "one sentence explaining what was changed"
-}}
-3. Return the COMPLETE new file content (not a diff).
-4. If no change is needed or the issue is already resolved, return:
-{{"file": null, "content": null, "explanation": "already resolved"}}
+Return ONLY a JSON object:
+{{"file": "path/to/file", "content": "complete new file content", "explanation": "one sentence"}}
 
-Return ONLY the JSON object, no other text."""
+If no change needed: {{"file": null, "content": null, "explanation": "already resolved"}}"""
 
           payload = json.dumps({
               "model": "claude-haiku-4-5-20251001",
@@ -133,24 +135,24 @@ Return ONLY the JSON object, no other text."""
               sys.exit(1)
 
           text = response["content"][0]["text"].strip()
-          # Strip markdown code fence if present
           if text.startswith("```"):
-              text = "\n".join(text.split("\n")[1:])
+              lines = text.split("\n")
+              text = "\n".join(lines[1:])
               if text.endswith("```"):
                   text = text[:-3].strip()
 
           result_data = json.loads(text)
-          print(f"Claude says: {result_data.get('explanation','')}")
+          print(f"Claude: {result_data.get('explanation','')}")
 
           if not result_data.get("file") or not result_data.get("content"):
-              print("No change needed. Exiting.")
+              print("No change needed.")
               sys.exit(0)
 
           target_file = result_data["file"]
           new_content = result_data["content"]
 
-          # ── Write the file and commit ────────────────────────────────────
-          os.makedirs(os.path.dirname(target_file) if "/" in target_file else ".", exist_ok=True)
+          if "/" in target_file:
+              os.makedirs(os.path.dirname(target_file), exist_ok=True)
           with open(target_file, "w", encoding="utf-8") as fh:
               fh.write(new_content)
 
@@ -161,19 +163,16 @@ Return ONLY the JSON object, no other text."""
           subprocess.run(["git", "add", target_file], check=True)
           subprocess.run(["git", "commit", "-m", f"fix: issue #{ISSUE_NUMBER} — {result_data['explanation'][:60]}"], check=True)
 
-          # Push using PAT
           remote_url = f"https://{PAT_USERNAME}:{PAT_TOKEN}@github.com/{REPO}.git"
           subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
           subprocess.run(["git", "push", "origin", branch_name], check=True)
-          print(f"Pushed branch: {branch_name}")
+          print(f"Pushed: {branch_name}")
 
-          # Create PR
           pr_payload = json.dumps({
               "title": f"Fix: Issue #{ISSUE_NUMBER} — {ISSUE_TITLE[:60]}",
               "body": f"Auto-fix for #{ISSUE_NUMBER}\n\n{result_data['explanation']}\n\nCloses #{ISSUE_NUMBER}",
               "head": branch_name,
-              "base": "main",
-              "draft": False
+              "base": "main"
           }).encode("utf-8")
 
           pr_req = urllib.request.Request(
@@ -190,7 +189,6 @@ Return ONLY the JSON object, no other text."""
               pr_data = json.loads(resp.read().decode("utf-8"))
           print(f"PR created: #{pr_data['number']} {pr_data['html_url']}")
 
-          # Write result for comment step
           with open("/tmp/fix_result.json", "w") as f:
               json.dump({
                   "pr_number": pr_data["number"],
@@ -203,27 +201,27 @@ Return ONLY the JSON object, no other text."""
         uses: actions/github-script@v7
         if: always()
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.issue_info.outputs.number }}
         with:
           github-token: ${{ secrets.PAT_TOKEN }}
           script: |
             const fs = require('fs');
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             if (!issueNumber) return;
-            let body = '⚠️ Auto-fix スクリプトが実行されましたが、PR は作成されませんでした。ログを確認してください。';
+            let body = '⚠️ Auto-fix が実行されましたが PR は作成されませんでした。ログを確認してください。';
             if (fs.existsSync('/tmp/fix_result.json')) {
               const r = JSON.parse(fs.readFileSync('/tmp/fix_result.json', 'utf8'));
               body = `✅ 修正完了。PR #${r.pr_number} を作成しました: ${r.pr_url}\n\n> ${r.explanation}`;
             }
             await github.rest.issues.createComment({
-              issue_number: issueNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
+              issue_number: issueNumber,
               body
             }).catch(console.error);
             await github.rest.issues.removeLabel({
-              issue_number: issueNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
+              issue_number: issueNumber,
               name: 'fix-me'
             }).catch(() => {});
