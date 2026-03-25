@@ -27,11 +27,11 @@ jobs:
 
       - name: Verify API key
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.DeepSeek_API_KEY }}
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "ERROR: DEEPSEEK_API_KEY secret is not set or empty."
-            echo "Go to Settings > Secrets > DEEPSEEK_API_KEY and confirm it has a value."
+            echo "ERROR: DeepSeek_API_KEY secret is not set or empty."
+            echo "Go to Settings > Secrets > DeepSeek_API_KEY and confirm it has a value."
             exit 1
           fi
           echo "ANTHROPIC_API_KEY: set (length=${#ANTHROPIC_API_KEY})"
@@ -43,7 +43,7 @@ jobs:
           # ANTHROPIC_API_KEY is the Anthropic SDK naming convention — used as primary key env var.
           # To revert to Anthropic-hosted: set ANTHROPIC_API_KEY to secrets.ANTHROPIC_API_KEY,
           # clear LLM_BASE_URL (empty string), set LLM_MODEL to claude-3-haiku-20240307.
-          ANTHROPIC_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.DeepSeek_API_KEY }}
           LLM_BASE_URL: "https://api.deepseek.com/anthropic"
           LLM_MODEL: "deepseek-chat"
           LLM_PROVIDER: "deepseek"
