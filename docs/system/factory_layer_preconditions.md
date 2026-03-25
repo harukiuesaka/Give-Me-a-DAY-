@@ -57,10 +57,12 @@ Additionally: Risk 3 in REPO_FIT_ASSESSMENT.md flags eval scope confusion as a m
 - At least one full `eval-run.yml` workflow_dispatch run producing 12/12 ok results
 
 ### Current status: PARTIALLY MET
-6/12 cases scored (Observed). Verdict on run cases: acceptable (avg 4.6–5.0). 6 cases blocked by ANTHROPIC_API_KEY credit exhaustion (OL-022). Highest-risk cases (DF-05, CG-02, VP-02) not yet run.
+6/12 cases scored (Observed). Verdict on run cases: acceptable (avg 4.6–5.0). 6 cases blocked (DF-02, DF-03, DF-05, CG-02, CG-04, VP-02). Highest-risk cases (DF-05, CG-02, VP-02) not yet run.
+
+**2026-03-25 update**: DeepSeek migration deployed (PR #28). First DeepSeek rerun triggered. Results NOT persisted to main — root cause UNKNOWN (see OL-022 for detail and next actions). C2 remains PARTIALLY MET.
 
 ### Concrete next action
-Haruki resolves OL-022 (recharge or rotate ANTHROPIC_API_KEY). Agent triggers `eval-run.yml` via workflow_dispatch. Agent scores remaining 6 cases and updates engineering.md with full baseline.
+Haruki inspects Actions workflow log for last `eval-run.yml` run → identifies failure cause → confirms `deepseekllm` secret is valid → re-triggers `eval-run.yml` on main. Agent scores results and updates engineering.md.
 
 ---
 

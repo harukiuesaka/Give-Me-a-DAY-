@@ -1,7 +1,7 @@
 # OPEN_LOOPS.md
 
 **Role**: Full list of unresolved loops. Optimized for AI execution and closure.
-**Last updated**: 2026-03-25 (Session 6 — eval run 01)
+**Last updated**: 2026-03-25 (Session 7 — DeepSeek rerun triggered; results not persisted)
 
 ---
 
@@ -21,16 +21,19 @@
 ---
 
 ### OL-022
-**Title**: ANTHROPIC_API_KEY in GitHub Secrets — credit exhausted
+**Title**: Eval provider / key — DeepSeek rerun triggered; results not yet persisted to main
 **Domain**: Engineering / Ops
 **Priority**: P1
-**Status**: open
+**Status**: in_progress — PR #28 merged 2026-03-25; first DeepSeek rerun triggered; result NOT committed to main
 **Owner**: human (Haruki)
-**Blocker**: `for openhands` key in `Give Me a DAY` Anthropic workspace has zero credit balance (confirmed: GitHub Actions eval-run.yml run returned 400 error on all 12 cases 2026-03-25)
-**Next Action**: Haruki must either (a) recharge the `for openhands` key in the `Give Me a DAY` Anthropic workspace, OR (b) create a new API key and update `ANTHROPIC_API_KEY` in GitHub repository secrets. After resolving: trigger `eval-run.yml` via workflow_dispatch to run remaining 6 eval cases.
-**Unknowns**: Whether recharge or rotation is faster; whether other GitHub Actions workflows are also blocked
+**What happened (2026-03-25)**:
+- Original blocker: Anthropic API credit exhausted → migrated eval to DeepSeek (`https://api.deepseek.com/anthropic`, `deepseek-chat`, `ANTHROPIC_API_KEY` wired from `deepseekllm` secret). PR #28 merged.
+- User triggered `eval-run.yml` on main. Workflow reported complete. No new result file appeared on main (confirmed by `git fetch --all`).
+- Root cause: UNKNOWN. Possible: (A) `deepseekllm` secret value is invalid/expired; (B) DeepSeek API rejected request; (C) `git push origin HEAD` failed; (D) workflow ran on wrong branch.
+**Next Action**: Human must: (1) open GitHub → Actions → `eval-run.yml` → latest run → inspect step logs; (2) confirm `deepseekllm` secret is set with a valid active key; (3) re-trigger `eval-run.yml` on `main` branch.
+**Unknowns**: Whether `deepseekllm` secret is valid; whether DeepSeek API responded; whether push step succeeded
 **Related Files**: `.github/workflows/eval-run.yml`, `scripts/eval_runner.py`, `evals/results/`
-**Close Condition**: `eval-run.yml` triggers successfully and produces results for all 12 cases with status `ok`
+**Close Condition**: `eval-run.yml` produces a result file committed to main with status `ok` for the 6 remaining cases (DF-02, DF-03, DF-05, CG-02, CG-04, VP-02)
 
 ---
 
@@ -56,7 +59,8 @@
 **Status**: in_progress — partial run complete; 6 cases remaining
 **Owner**: agent (scoring) / human (API key fix to unblock remaining 6)
 **Blocker**: OL-022 (ANTHROPIC_API_KEY credit exhaustion) blocks remaining 6 cases
-**Next Action**: Human resolves OL-022; agent triggers `eval-run.yml` via workflow_dispatch; agent scores remaining cases and closes OL-017 with full 12/12 coverage
+**Update (2026-03-25)**: DeepSeek rerun triggered post-merge. No new results committed. Cause: UNKNOWN (see OL-022). No new cases scored.
+**Next Action**: Human resolves OL-022 (confirms DeepSeek secret + re-triggers workflow); agent scores 6 remaining cases and closes OL-017 with full 12/12 coverage
 **Observed (Run 01, 2026-03-25 — 6 cases, in-context generation, claude-sonnet-4-6)**:
 - DomainFramer: 2/5 cases run (DF-01, DF-04). Avg 4.6. Verdict: acceptable.
 - CandidateGenerator: 2/4 cases run (CG-01, CG-03). Avg 5.0. Verdict: acceptable.

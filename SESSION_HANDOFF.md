@@ -1,41 +1,42 @@
 # SESSION_HANDOFF.md
 
 **Role**: Startup file for next AI session. Latest only.
-**Last updated**: 2026-03-25 (Session 6 — eval run 01 partial, PR pending)
+**Last updated**: 2026-03-25 (Session 7 — DeepSeek rerun triggered; results not persisted)
 
 ---
 
-**Mode**: Engineering / Eval — Run 01 results ready for PR merge
+**Mode**: Eval / Ops — DeepSeek migration on main; rerun ran but results not committed
 
-**Branch**: `feat/eval-run-01-results` (PR open — eval run 01 results + state updates)
+**Branch**: `main` (PR #28 merged — DeepSeek migration + eval corrections)
 
-**Now**:
-1. **Human: merge `feat/eval-run-01-results` PR** (eval run 01 results, OL-017 partial data)
-2. **Human: resolve OL-022** — ANTHROPIC_API_KEY credit exhausted. Either:
-   - Recharge the `for openhands` key in the `Give Me a DAY` Anthropic workspace, OR
-   - Create a new API key → update `ANTHROPIC_API_KEY` in GitHub repository secrets
-3. After API key resolved: trigger `eval-run.yml` via workflow_dispatch → completes remaining 6 eval cases (DF-02, DF-03, DF-05, CG-02, CG-04, VP-02)
-4. After remaining 6 cases run: agent scores and closes OL-017 with full 12/12 coverage
+**Current state**:
+- PR #28 merged. `eval-run.yml` now uses `ANTHROPIC_API_KEY: ${{ secrets.deepseekllm }}` + `LLM_BASE_URL: https://api.deepseek.com/anthropic`.
+- First DeepSeek rerun triggered. **No new result file committed to main.** Root cause UNKNOWN.
+- Repo eval state: 6/12 ok, 6/12 api_error (original Run 01 data; unscored: DF-02, DF-03, DF-05, CG-02, CG-04, VP-02).
+- OL-022 status: in_progress (blocker changed: now `deepseekllm` secret validity + push confirmation).
 
-**Eval Run 01 Results (Observed, 2026-03-25 — 6/12 cases)**:
+**Now — human actions required**:
+1. **Diagnose**: Open GitHub → Actions → `eval-run.yml` → latest run → read step logs. Identify which step failed: "Run eval" (api_error?) or "Commit results" (push failed?).
+2. **Confirm secret**: Check GitHub repository secrets → `deepseekllm` is set and has a valid active DeepSeek API key value.
+3. **Re-trigger**: `eval-run.yml` workflow_dispatch on `main` branch.
+4. After results committed: tell agent "eval rerun committed" → agent scores 6 cases, closes OL-017, updates state.
+
+**Eval baseline (Observed, 2026-03-25 — 6/12 cases, Run 01)**:
 - DomainFramer (DF-01, DF-04): avg 4.6 — acceptable
 - CandidateGenerator (CG-01, CG-03): avg 5.0 — acceptable
 - ValidationPlanner (VP-01, VP-03): avg 4.9 — acceptable
 - **Recommendation A (conditional)**: Limited human testing permitted on FACTOR archetype goals
 - **DO NOT expose ALT_DATA or STAT_ARB goal types** until DF-05 + CG-02 are scored
 
-**Success**: PR merged; OL-022 resolved; `eval-run.yml` triggered and produces 12/12 ok results
-
 **Read First**:
 1. `SYSTEM_PRINCIPLES.md`
 2. `CURRENT_STATE.md`
-3. `OPEN_LOOPS.md` — note OL-022 (new, human-required) and OL-017 (partial)
-4. `docs/evals/llm_quality_run_01.md` — run 01 summary
-5. `docs/state/engineering.md` — eval results section
+3. `OPEN_LOOPS.md` — note OL-022 (in_progress) and OL-017 (partial)
+4. `docs/system/factory_layer_preconditions.md` — C2 partially met, C1/C3/C4 unmet
 
-**Unknown**: DF-05 (ALT_DATA hallucination), CG-02 (STAT_ARB forbidden behavior), VP-02 (ML_SIGNAL sensitivity test), DF-02, DF-03, CG-04 scores. Railway cron natural trigger unconfirmed (OL-019).
+**Unknown**: DF-05, CG-02, VP-02, DF-02, DF-03, CG-04 scores. Why DeepSeek rerun results not persisted. Railway cron natural trigger (OL-019).
 
 **Human Required**:
-- **OL-022**: API key recharge or rotation (blocks 6 eval cases)
-- PR merge for `feat/eval-run-01-results`
-- Any external outreach (OL-016)
+- **OL-022**: Inspect Actions log + confirm `deepseekllm` secret + re-trigger eval
+- **OL-016**: Mom Test — no interviews scheduled, no candidate list exists
+- Any external outreach
