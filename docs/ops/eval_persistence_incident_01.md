@@ -96,7 +96,7 @@ This commit applies the 3 unmerged DeepSeek migration commits directly to `main`
 | File | Change |
 |------|--------|
 | `scripts/eval_runner.py` | Provider config block added; `LLM_BASE_URL` defaults to `https://api.deepseek.com/anthropic`; `ANTHROPIC_API_KEY` as primary key var; same-day rerun protection; `provider` field in result records |
-| `.github/workflows/eval-run.yml` | `ANTHROPIC_API_KEY: ${{ secrets.deepseekllm }}`; `LLM_BASE_URL: "https://api.deepseek.com/anthropic"`; `LLM_MODEL: deepseek-chat`; `LLM_PROVIDER: deepseek`; "Show results" step added; `git push origin HEAD` (explicit); commit message includes UTC time |
+| `.github/workflows/eval-run.yml` | `ANTHROPIC_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}`; `LLM_BASE_URL: "https://api.deepseek.com/anthropic"`; `LLM_MODEL: deepseek-chat`; `LLM_PROVIDER: deepseek`; "Show results" step added; `git push origin HEAD` (explicit); commit message includes UTC time |
 | `docs/ops/ol022_recovery_runbook.md` | Created — runbook for OL-022 resolution and revert path |
 | `docs/ops/eval_rerun_checklist.md` | Created — operator checklist for eval rerun |
 | `docs/state/engineering.md` | Provider history table + corrected URL column |
@@ -110,7 +110,7 @@ This commit applies the 3 unmerged DeepSeek migration commits directly to `main`
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| `deepseekllm` secret not set in GitHub Secrets | High | Operator must confirm before triggering rerun (see checklist) |
+| `DEEPSEEK_API_KEY` secret not set in GitHub Secrets | High | Operator must confirm before triggering rerun (see checklist) |
 | DeepSeek API key invalid/expired | High | Same — check checklist preflight |
 | `run_2026-03-25.jsonl` is a hybrid file (in-context + workflow) | Medium | Acknowledged. The next clean workflow run will write a separate `_rerun` file. Future score comparisons should note provider and run method. See `docs/state/engineering.md` provider history table. |
 | Same sequence (commit after merge) could recur on future PRs | Low | Operator awareness. Any PR containing eval config changes should be triggered only after merge is confirmed stable. |
@@ -122,8 +122,8 @@ This commit applies the 3 unmerged DeepSeek migration commits directly to `main`
 
 Before triggering the next eval rerun, confirm all of the following:
 
-1. **Secret exists**: GitHub repo → Settings → Secrets and variables → Actions → confirm `deepseekllm` is listed
-2. **Secret is valid**: The `deepseekllm` secret must contain a valid, active DeepSeek API key (not expired, not over quota). Verify at [platform.deepseek.com](https://platform.deepseek.com) → API Keys
+1. **Secret exists**: GitHub repo → Settings → Secrets and variables → Actions → confirm `DEEPSEEK_API_KEY` is listed
+2. **Secret is valid**: The `DEEPSEEK_API_KEY` secret must contain a valid, active DeepSeek API key (not expired, not over quota). Verify at [platform.deepseek.com](https://platform.deepseek.com) → API Keys
 3. **Workflow on correct branch**: Trigger `eval-run.yml` via `workflow_dispatch` on `main` branch (not any feature branch)
 4. **After run**: Check Actions → `eval-run.yml` → latest run → "Show results" step — confirms provider and per-case status without downloading JSONL
 5. **File committed**: Check that a `run_2026-03-25_rerunHHMM.jsonl` file was committed to `evals/results/` on main

@@ -12,10 +12,10 @@
 Before triggering the run, confirm:
 
 - [ ] PR #28 (`feat/eval-run-01-results`) has been merged to main — contains the DeepSeek migration for `eval_runner.py` and `eval-run.yml`
-- [ ] `deepseekllm` secret exists in GitHub Secrets (Settings → Secrets and variables → Actions)
-- [ ] Branch to trigger is **main** (workflow reads `deepseekllm` from main branch workflow file)
+- [ ] `DEEPSEEK_API_KEY` secret exists in GitHub Secrets (Settings → Secrets and variables → Actions)
+- [ ] Branch to trigger is **main** (workflow reads `DEEPSEEK_API_KEY` from main branch workflow file)
 
-Note: `ANTHROPIC_API_KEY` is **no longer required** for eval runs. The eval path now uses `deepseekllm` → `LLM_API_KEY` → DeepSeek API. If any item is unchecked, do not trigger the run yet.
+Note: `ANTHROPIC_API_KEY` is **no longer required** for eval runs. The eval path now uses `DEEPSEEK_API_KEY` → `LLM_API_KEY` → DeepSeek API. If any item is unchecked, do not trigger the run yet.
 
 ---
 

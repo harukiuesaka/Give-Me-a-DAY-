@@ -27,11 +27,11 @@
 **Status**: in_progress — PR #28 merged 2026-03-25; first DeepSeek rerun triggered; result NOT committed to main
 **Owner**: human (Haruki)
 **What happened (2026-03-25)**:
-- Original blocker: Anthropic API credit exhausted → migrated eval to DeepSeek (`https://api.deepseek.com/anthropic`, `deepseek-chat`, `ANTHROPIC_API_KEY` wired from `deepseekllm` secret). PR #28 merged.
+- Original blocker: Anthropic API credit exhausted → migrated eval to DeepSeek (`https://api.deepseek.com/anthropic`, `deepseek-chat`, `ANTHROPIC_API_KEY` wired from `DEEPSEEK_API_KEY` secret). PR #28 merged.
 - User triggered `eval-run.yml` on main. Workflow reported complete. No new result file appeared on main (confirmed by `git fetch --all`).
-- Root cause: UNKNOWN. Possible: (A) `deepseekllm` secret value is invalid/expired; (B) DeepSeek API rejected request; (C) `git push origin HEAD` failed; (D) workflow ran on wrong branch.
-**Next Action**: Human must: (1) open GitHub → Actions → `eval-run.yml` → latest run → inspect step logs; (2) confirm `deepseekllm` secret is set with a valid active key; (3) re-trigger `eval-run.yml` on `main` branch.
-**Unknowns**: Whether `deepseekllm` secret is valid; whether DeepSeek API responded; whether push step succeeded
+- Root cause: UNKNOWN. Possible: (A) `DEEPSEEK_API_KEY` secret value is invalid/expired; (B) DeepSeek API rejected request; (C) `git push origin HEAD` failed; (D) workflow ran on wrong branch.
+**Next Action**: Human must: (1) open GitHub → Actions → `eval-run.yml` → latest run → inspect step logs; (2) confirm `DEEPSEEK_API_KEY` secret is set with a valid active key; (3) re-trigger `eval-run.yml` on `main` branch.
+**Unknowns**: Whether `DEEPSEEK_API_KEY` secret is valid; whether DeepSeek API responded; whether push step succeeded
 **Related Files**: `.github/workflows/eval-run.yml`, `scripts/eval_runner.py`, `evals/results/`
 **Close Condition**: `eval-run.yml` produces a result file committed to main with status `ok` for the 6 remaining cases (DF-02, DF-03, DF-05, CG-02, CG-04, VP-02)
 

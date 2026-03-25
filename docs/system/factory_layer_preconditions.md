@@ -62,7 +62,7 @@ Additionally: Risk 3 in REPO_FIT_ASSESSMENT.md flags eval scope confusion as a m
 **2026-03-25 update**: DeepSeek migration deployed (PR #28). First DeepSeek rerun triggered. Results NOT persisted to main — root cause UNKNOWN (see OL-022 for detail and next actions). C2 remains PARTIALLY MET.
 
 ### Concrete next action
-Haruki inspects Actions workflow log for last `eval-run.yml` run → identifies failure cause → confirms `deepseekllm` secret is valid → re-triggers `eval-run.yml` on main. Agent scores results and updates engineering.md.
+Haruki inspects Actions workflow log for last `eval-run.yml` run → identifies failure cause → confirms `DEEPSEEK_API_KEY` secret is valid → re-triggers `eval-run.yml` on main. Agent scores results and updates engineering.md.
 
 ---
 

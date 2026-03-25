@@ -9,7 +9,7 @@
 
 ## STATUS UPDATE — Provider Migration Applied
 
-The eval pipeline has been migrated from Anthropic-hosted Claude to DeepSeek via the Anthropic-compatible API. The `ANTHROPIC_API_KEY` is **no longer used by `eval-run.yml`**. The workflow now uses `secrets.deepseekllm` as `LLM_API_KEY`.
+The eval pipeline has been migrated from Anthropic-hosted Claude to DeepSeek via the Anthropic-compatible API. The `ANTHROPIC_API_KEY` is **no longer used by `eval-run.yml`**. The workflow now uses `secrets.DEEPSEEK_API_KEY` as `LLM_API_KEY`.
 
 **OL-022 is resolved when**: PR #28 is merged to main AND `eval-run.yml` is triggered and produces ≥1 ok result using DeepSeek.
 
@@ -23,7 +23,7 @@ The `ANTHROPIC_API_KEY` stored in GitHub repository Secrets referenced the `for 
 
 Confirmed evidence: `eval-run.yml` GitHub Actions run triggered 2026-03-25 returned HTTP 400 on all 12 eval cases with the message: `Error code: 400 - credit balance too low`.
 
-**Resolution chosen**: Migrate eval path to DeepSeek (cost-effective; `deepseekllm` secret already exists in GitHub Secrets). The `ANTHROPIC_API_KEY` is no longer needed for eval. The product runtime model (`claude-sonnet-4-20250514` in `backend/src/llm/client.py`) is **not changed**.
+**Resolution chosen**: Migrate eval path to DeepSeek (cost-effective; `DEEPSEEK_API_KEY` secret already exists in GitHub Secrets). The `ANTHROPIC_API_KEY` is no longer needed for eval. The product runtime model (`claude-sonnet-4-20250514` in `backend/src/llm/client.py`) is **not changed**.
 
 No other GitHub Actions workflow that calls Anthropic directly is currently used except `eval-run.yml`. The daily report workflow (`daily-report.yml`) uses OpenRouter as primary and Anthropic direct as fallback — OpenRouter is the confirmed working path, so daily reports are unaffected.
 
@@ -33,16 +33,16 @@ No other GitHub Actions workflow that calls Anthropic directly is currently used
 
 **One action only**:
 
-### Verify `deepseekllm` secret exists and is active
+### Verify `DEEPSEEK_API_KEY` secret exists and is active
 
 1. Go to: [github.com/haruki121731-del/Give-Me-a-DAY-/settings/secrets/actions](https://github.com/haruki121731-del/Give-Me-a-DAY-/settings/secrets/actions)
-2. Confirm `deepseekllm` is listed. If it exists, no update is needed — the workflow already maps it to `LLM_API_KEY`.
+2. Confirm `DEEPSEEK_API_KEY` is listed. If it exists, no update is needed — the workflow already maps it to `LLM_API_KEY`.
 3. Merge PR #28 (contains `eval-run.yml` and `eval_runner.py` changes).
 4. Trigger `eval-run.yml` via workflow_dispatch on `main`.
 
-Note: `eval-run.yml` sets `ANTHROPIC_API_KEY: ${{ secrets.deepseekllm }}` — the Anthropic SDK picks this up by name automatically. The base URL is `https://api.deepseek.com/anthropic` (DeepSeek's Anthropic-compatible endpoint).
+Note: `eval-run.yml` sets `ANTHROPIC_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}` — the Anthropic SDK picks this up by name automatically. The base URL is `https://api.deepseek.com/anthropic` (DeepSeek's Anthropic-compatible endpoint).
 
-If `deepseekllm` secret is missing or expired: create a new DeepSeek API key at [platform.deepseek.com](https://platform.deepseek.com) → API Keys → Create. Set it as the `deepseekllm` secret value in GitHub Secrets.
+If `DEEPSEEK_API_KEY` secret is missing or expired: create a new DeepSeek API key at [platform.deepseek.com](https://platform.deepseek.com) → API Keys → Create. Set it as the `DEEPSEEK_API_KEY` secret value in GitHub Secrets.
 
 **Do not** share the key value in chat, issues, or commit messages. D-004: AI never generates, stores, or copies secret values.
 
@@ -66,7 +66,7 @@ No change to `eval_runner.py` needed — the env-var config makes it provider-ag
 
 | Location | What to check | Required for |
 |----------|--------------|-------------|
-| GitHub repo → Settings → Secrets → Actions → `deepseekllm` | Confirm exists and is active | eval-run.yml LLM_API_KEY |
+| GitHub repo → Settings → Secrets → Actions → `DEEPSEEK_API_KEY` | Confirm exists and is active | eval-run.yml LLM_API_KEY |
 | PR #28 | Must be merged to main before triggering | eval-run.yml + eval_runner.py changes |
 
 The `ANTHROPIC_API_KEY` secret is no longer required by `eval-run.yml`. It remains in Secrets for the daily report workflow's Anthropic fallback path — do not delete it.

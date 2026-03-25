@@ -97,7 +97,7 @@ All 12 steps implemented through Round 6.12. (Observed: files exist. Inferred: n
 
 ## LLM Quality Eval — Run 01 Results (Observed: 2026-03-25)
 
-**Coverage**: 6/12 cases. Provider: deepseek (in-context), model: claude-sonnet-4-6. Remaining 6 unrun — eval pipeline now migrated to DeepSeek (`deepseek-chat`); next run uses `deepseekllm` GitHub Secret.
+**Coverage**: 6/12 cases. Provider: deepseek (in-context), model: claude-sonnet-4-6. Remaining 6 unrun — eval pipeline now migrated to DeepSeek (`deepseek-chat`); next run uses `DEEPSEEK_API_KEY` GitHub Secret.
 
 | Module | Cases Run | Avg Score | Verdict |
 |--------|-----------|-----------|---------|
@@ -120,7 +120,7 @@ Full results: `evals/results/run_2026-03-25.jsonl`, `evals/results/scores_2026-0
 | Provider | deepseek | `LLM_PROVIDER` env var |
 | Base URL | https://api.deepseek.com/anthropic | `LLM_BASE_URL` env var |
 | Model | deepseek-chat | `LLM_MODEL` env var |
-| API key env var | `ANTHROPIC_API_KEY` (Anthropic SDK naming; wired from `deepseekllm` GitHub Secret) | workflow env block |
+| API key env var | `ANTHROPIC_API_KEY` (Anthropic SDK naming; wired from `DEEPSEEK_API_KEY` GitHub Secret) | workflow env block |
 | Revert to Anthropic | Set `LLM_BASE_URL=` (empty), `LLM_MODEL=claude-3-haiku-20240307`, `ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}` | Workflow env block |
 
 **Product runtime model is unchanged**: `backend/src/llm/client.py` still uses `claude-sonnet-4-20250514` (Anthropic-hosted). Only the eval path changed.
