@@ -1,7 +1,7 @@
 # SESSION_HANDOFF.md
 
 **Role**: Startup file for next AI session. Latest only.
-**Last updated**: 2026-03-25 (Session 6 — OL-022 recovery readiness, eval rerun ready)
+**Last updated**: 2026-03-25 (Session 6 — DeepSeek eval migration applied)
 
 ---
 
@@ -10,11 +10,11 @@
 **Branch**: `feat/eval-run-01-results` (PR open — eval run 01 results + state updates)
 
 **Now**:
-1. **Human: merge `feat/eval-run-01-results` PR #28** — contains eval results, state updates, preconditions tracker, blocker plan, Mom Test run plan, OL-022 recovery docs, and eval rerun improvements
-2. **Human: resolve OL-022** — follow `docs/ops/ol022_recovery_runbook.md` §2 (recharge or rotate key)
-3. **Human: trigger eval rerun** — follow `docs/ops/eval_rerun_checklist.md` after key fix
+1. **Human: merge `feat/eval-run-01-results` PR #28** — contains eval run 01 results, DeepSeek migration, preconditions tracker, blocker plan, Mom Test run plan, and OL-022 recovery docs
+2. **Human: confirm `deepseekllm` secret exists** in GitHub Secrets (Settings → Secrets and variables → Actions)
+3. **Human: trigger `eval-run.yml`** on main via workflow_dispatch — uses DeepSeek now (no Anthropic key needed)
 4. **Human: tell agent "eval rerun complete"** — agent scores new cases, closes OL-017, updates C2 status
-5. **Human (parallel, no dependency on above): start OL-016** — read `docs/research/mom_test_run_plan.md`, build respondent list, request outreach copy from agent
+5. **Human (parallel): start OL-016** — read `docs/research/mom_test_run_plan.md`, build respondent list, request outreach copy from agent
 
 **Eval Run 01 Results (Observed, 2026-03-25 — 6/12 cases)**:
 - DomainFramer (DF-01, DF-04): avg 4.6 — acceptable

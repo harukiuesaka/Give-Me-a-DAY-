@@ -1,59 +1,73 @@
 # OL-022 Recovery Runbook
 
-**Blocker**: ANTHROPIC_API_KEY credit exhaustion in GitHub Secrets
+**Blocker**: ~~ANTHROPIC_API_KEY credit exhaustion~~ → **Resolved by eval provider migration to DeepSeek**
 **Priority**: P1 — blocks OL-017, which blocks C2, which blocks factory layer gate
-**Owner**: Haruki (human action required — agent cannot access Anthropic billing or GitHub Secrets)
-**Last updated**: 2026-03-25
+**Owner**: Haruki (trigger eval-run.yml after merging PR with DeepSeek migration)
+**Last updated**: 2026-03-25 (updated: eval path migrated to DeepSeek; ANTHROPIC_API_KEY no longer required for eval)
 
 ---
 
-## 1. Root Cause Summary
+## STATUS UPDATE — Provider Migration Applied
 
-The `ANTHROPIC_API_KEY` stored in GitHub repository Secrets references the `for openhands` key in the `Give Me a DAY` Anthropic workspace. As of 2026-03-25, this key has zero credit balance.
+The eval pipeline has been migrated from Anthropic-hosted Claude to DeepSeek via the Anthropic-compatible API. The `ANTHROPIC_API_KEY` is **no longer used by `eval-run.yml`**. The workflow now uses `secrets.deepseekllm` as `LLM_API_KEY`.
 
-Confirmed evidence: `eval-run.yml` GitHub Actions run triggered 2026-03-25 returned HTTP 400 on all 12 eval cases with the message: `Error code: 400 - credit balance too low`. The error appeared in the `eval_runner.py` stdout as `API_ERROR: ...credit balance too low...` (visible in Actions → Run eval step logs).
+**OL-022 is resolved when**: PR #28 is merged to main AND `eval-run.yml` is triggered and produces ≥1 ok result using DeepSeek.
 
-The model being called is `claude-3-haiku-20240307`. This model was confirmed working in Session 4 with a different key context (OpenHands E2E test). The failure is billing, not model access or API syntax.
-
-No other GitHub Actions workflow that calls Anthropic directly is currently used except `eval-run.yml`. The daily report workflow (`daily-report.yml`) uses OpenRouter as primary and Anthropic direct as fallback — OpenRouter is the confirmed working path, so daily reports are not blocked.
+The sections below are preserved for historical record and as a revert reference.
 
 ---
 
-## 2. Exact Human Action Required
+## 1. Root Cause Summary (historical)
 
-**Choose one option:**
+The `ANTHROPIC_API_KEY` stored in GitHub repository Secrets referenced the `for openhands` key in the `Give Me a DAY` Anthropic workspace. As of 2026-03-25, this key had zero credit balance.
 
-### Option A — Recharge the existing key (fastest if credit system is immediate)
+Confirmed evidence: `eval-run.yml` GitHub Actions run triggered 2026-03-25 returned HTTP 400 on all 12 eval cases with the message: `Error code: 400 - credit balance too low`.
 
-1. Log into [console.anthropic.com](https://console.anthropic.com)
-2. Select the `Give Me a DAY` workspace (top-left workspace switcher)
-3. Navigate to **Billing** → **Add credits**
-4. Add sufficient credits for the eval run. Estimated cost: `claude-3-haiku-20240307` at 12 cases × ~1000 input tokens + ~500 output tokens ≈ $0.05–$0.15 total. Add at minimum $5 to avoid immediate re-exhaustion.
-5. The existing `ANTHROPIC_API_KEY` in GitHub Secrets does not need to change — it already points to this key.
+**Resolution chosen**: Migrate eval path to DeepSeek (cost-effective; `deepseekllm` secret already exists in GitHub Secrets). The `ANTHROPIC_API_KEY` is no longer needed for eval. The product runtime model (`claude-sonnet-4-20250514` in `backend/src/llm/client.py`) is **not changed**.
 
-### Option B — Rotate to a new key (if Option A is not possible or takes time)
-
-1. Log into [console.anthropic.com](https://console.anthropic.com)
-2. Select the `Give Me a DAY` workspace
-3. Navigate to **API Keys** → **Create new key**
-4. Name it (e.g., `eval-runner-2026-03`)
-5. Copy the key value (shown only once)
-6. Go to: [github.com/haruki121731-del/Give-Me-a-DAY-/settings/secrets/actions](https://github.com/haruki121731-del/Give-Me-a-DAY-/settings/secrets/actions)
-7. Click `ANTHROPIC_API_KEY` → **Update secret**
-8. Paste the new key value → **Save**
-
-**Do not** share the key value in chat, issues, or commit messages. D-004 (agent governance rule): AI never generates, stores, or copies secret values.
+No other GitHub Actions workflow that calls Anthropic directly is currently used except `eval-run.yml`. The daily report workflow (`daily-report.yml`) uses OpenRouter as primary and Anthropic direct as fallback — OpenRouter is the confirmed working path, so daily reports are unaffected.
 
 ---
 
-## 3. Exact GitHub Locations That Must Be Updated
+## 2. Exact Human Action Required (current — DeepSeek path)
 
-| Location | What to update | Required for |
-|----------|---------------|-------------|
-| GitHub repo → Settings → Secrets and variables → Actions → `ANTHROPIC_API_KEY` | Update value if rotating key (Option B) | eval-run.yml API calls |
-| Anthropic console → `Give Me a DAY` workspace → Billing | Add credits (Option A) | API key credit balance |
+**One action only**:
 
-No code changes are required. The `eval-run.yml` workflow and `eval_runner.py` script already reference `ANTHROPIC_API_KEY` correctly.
+### Verify `deepseekllm` secret exists and is active
+
+1. Go to: [github.com/haruki121731-del/Give-Me-a-DAY-/settings/secrets/actions](https://github.com/haruki121731-del/Give-Me-a-DAY-/settings/secrets/actions)
+2. Confirm `deepseekllm` is listed. If it exists, no update is needed — the workflow already maps it to `LLM_API_KEY`.
+3. Merge PR #28 (contains `eval-run.yml` and `eval_runner.py` changes).
+4. Trigger `eval-run.yml` via workflow_dispatch on `main`.
+
+If `deepseekllm` secret is missing or expired: create a new DeepSeek API key at [platform.deepseek.com](https://platform.deepseek.com) → API Keys → Create. Set it as the `deepseekllm` secret value in GitHub Secrets.
+
+**Do not** share the key value in chat, issues, or commit messages. D-004: AI never generates, stores, or copies secret values.
+
+---
+
+## 2b. Revert Path (back to Anthropic-hosted Claude)
+
+If DeepSeek connectivity fails and Anthropic key is recharged, revert by editing `.github/workflows/eval-run.yml` "Run eval" step env block:
+```yaml
+# Anthropic-hosted revert:
+LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+LLM_BASE_URL: ""          # empty string = Anthropic default
+LLM_MODEL: "claude-3-haiku-20240307"
+LLM_PROVIDER: "anthropic"
+```
+No change to `eval_runner.py` needed — the env-var config makes it provider-agnostic.
+
+---
+
+## 3. Exact GitHub Locations
+
+| Location | What to check | Required for |
+|----------|--------------|-------------|
+| GitHub repo → Settings → Secrets → Actions → `deepseekllm` | Confirm exists and is active | eval-run.yml LLM_API_KEY |
+| PR #28 | Must be merged to main before triggering | eval-run.yml + eval_runner.py changes |
+
+The `ANTHROPIC_API_KEY` secret is no longer required by `eval-run.yml`. It remains in Secrets for the daily report workflow's Anthropic fallback path — do not delete it.
 
 ---
 

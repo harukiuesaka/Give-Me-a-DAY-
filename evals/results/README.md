@@ -23,18 +23,23 @@ One JSON object per line. Each object:
 
 ```json
 {
-  "run_date": "2026-03-24",
+  "run_date": "2026-03-25",
   "case_id": "DF-01",
   "module": "DomainFramer",
   "scenario_label": "normal — standard factor strategy",
-  "model": "claude-sonnet-4-20250514",
+  "provider": "deepseek",
+  "model": "deepseek-chat",
   "temperature": 0.3,
   "prompt_version": "1.0",
-  "raw_output": { ... }
+  "status": "ok",
+  "error": null,
+  "raw_output": { ... },
+  "parsed_output": { ... },
+  "parse_error": null
 }
 ```
 
-`raw_output` is the direct LLM response, parsed as JSON if `call_json` was used, else the raw string.
+`provider` identifies the LLM provider. **Scores from different providers are not directly comparable without noting the provider field.** Run 01 (2026-03-25) used `provider: deepseek` (in-context, claude-sonnet-4-6) for the first 6 cases. From the first full workflow run, provider will be `deepseek` with model `deepseek-chat`. See `docs/state/engineering.md` for per-run provider history.
 
 ---
 

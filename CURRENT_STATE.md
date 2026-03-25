@@ -2,7 +2,7 @@
 
 **Role**: Parent index. Short overview by domain. Pointer map to detail files.
 **Truth precedence rank**: (inherits from `docs/state/*.md` — rank 3)
-**Last updated**: 2026-03-25 (Session 6 — eval run 01)
+**Last updated**: 2026-03-25 (Session 6 — DeepSeek eval migration)
 
 For rules and mission: → `SYSTEM_PRINCIPLES.md`
 For decisions: → `DECISIONS.md`
@@ -14,7 +14,7 @@ For decisions: → `DECISIONS.md`
 | Domain | State | Detail |
 |--------|-------|--------|
 | Product | v1 spec complete, backend implemented, no live users | → `docs/state/product.md` |
-| Engineering | Rounds 1–6.12 complete, CI green; eval run 01 partial (6/12 Observed, acceptable); 6 cases blocked by API key exhaustion | → `docs/state/engineering.md` |
+| Engineering | Rounds 1–6.12 complete, CI green; eval run 01 partial (6/12 Observed, acceptable); eval path migrated to DeepSeek (`deepseek-chat`); rerun pending PR merge | → `docs/state/engineering.md` |
 | Ops | ops/run.sh confirmed Run #3; Railway cron natural trigger unconfirmed | → `docs/state/ops.md` |
 | Marketing | Internal only, all external channels zero | → `docs/state/marketing.md` |
 | Agent Governance | 3 agents defined, guardrails active | → `docs/state/agent_governance.md` |
@@ -26,7 +26,7 @@ For decisions: → `DECISIONS.md`
 
 | # | Item | Owner | State file |
 |---|------|-------|------------|
-| 1 | ANTHROPIC_API_KEY credit exhausted — 6 eval cases blocked | **human (Haruki)** | OL-022 |
+| 1 | OL-022: merge PR #28 + trigger eval-run.yml with DeepSeek | **human (Haruki)** | OL-022 |
 | 2 | No live users — PMF entirely unvalidated | human | `docs/state/product.md` |
 | 3 | Railway cron: configured, natural trigger unconfirmed | agent detect | `docs/state/ops.md` |
 | 4 | Marketing: zero external activity | human | `docs/state/marketing.md` |
@@ -48,6 +48,17 @@ Currently open:
 | OL-019 | Railway cron natural trigger confirmation | P2 | agent |
 
 ---
+
+## Recent Changes (Session 6 — DeepSeek eval migration)
+
+- `scripts/eval_runner.py`: provider config now env-var driven (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`); defaults to DeepSeek via Anthropic-compatible API; `provider` field added to all result records
+- `.github/workflows/eval-run.yml`: uses `secrets.deepseekllm` as `LLM_API_KEY`; revert instructions in comments
+- `docs/state/engineering.md`: provider history table added; eval provider config section added
+- `evals/results/README.md`: `provider` field documented; score continuity warning added
+- `docs/ops/ol022_recovery_runbook.md`: updated to reflect DeepSeek resolution path + revert instructions
+- `docs/ops/eval_rerun_checklist.md`: preflight updated (no Anthropic key needed)
+- OL-022 status updated: migration applied, pending merge + first DeepSeek run
+- **Product runtime unchanged**: `backend/src/llm/client.py` still uses `claude-sonnet-4-20250514` (Anthropic-hosted)
 
 ## Recent Changes (Session 6 — eval run 01)
 

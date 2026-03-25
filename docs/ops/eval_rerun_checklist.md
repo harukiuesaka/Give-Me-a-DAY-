@@ -11,12 +11,11 @@
 
 Before triggering the run, confirm:
 
-- [ ] `ANTHROPIC_API_KEY` secret has been recharged or rotated (see runbook §2)
-- [ ] The key is in the **`Give Me a DAY` Anthropic workspace** (not personal workspace)
-- [ ] The key has sufficient credits (minimum $5 recommended; eval costs ~$0.15)
-- [ ] PR #28 (`feat/eval-run-01-results`) has been merged to main — the updated `eval_runner.py` and `eval-run.yml` are on main
+- [ ] PR #28 (`feat/eval-run-01-results`) has been merged to main — contains the DeepSeek migration for `eval_runner.py` and `eval-run.yml`
+- [ ] `deepseekllm` secret exists in GitHub Secrets (Settings → Secrets and variables → Actions)
+- [ ] Branch to trigger is **main** (workflow reads `deepseekllm` from main branch workflow file)
 
-If any item is unchecked, do not trigger the run yet.
+Note: `ANTHROPIC_API_KEY` is **no longer required** for eval runs. The eval path now uses `deepseekllm` → `LLM_API_KEY` → DeepSeek API. If any item is unchecked, do not trigger the run yet.
 
 ---
 

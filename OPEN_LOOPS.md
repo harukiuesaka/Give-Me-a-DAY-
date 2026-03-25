@@ -1,7 +1,7 @@
 # OPEN_LOOPS.md
 
 **Role**: Full list of unresolved loops. Optimized for AI execution and closure.
-**Last updated**: 2026-03-25 (Session 6 — OL-022 recovery readiness)
+**Last updated**: 2026-03-25 (Session 6 — DeepSeek eval migration)
 
 ---
 
@@ -21,16 +21,16 @@
 ---
 
 ### OL-022
-**Title**: ANTHROPIC_API_KEY in GitHub Secrets — credit exhausted
+**Title**: Eval provider migration — DeepSeek replaces Anthropic-hosted Claude for eval path
 **Domain**: Engineering / Ops
 **Priority**: P1
-**Status**: open
-**Owner**: human (Haruki)
-**Blocker**: `for openhands` key in `Give Me a DAY` Anthropic workspace has zero credit balance (confirmed: GitHub Actions eval-run.yml run returned 400 error on all 12 cases 2026-03-25)
-**Next Action**: Follow `docs/ops/ol022_recovery_runbook.md` §2. Either (a) recharge credits on `for openhands` key in Anthropic console → `Give Me a DAY` workspace, OR (b) create new key → update `ANTHROPIC_API_KEY` in GitHub Secrets. Then use `docs/ops/eval_rerun_checklist.md` to trigger and verify eval-run.yml.
-**Unknowns**: Whether recharge or rotation is faster; whether PAT_TOKEN is still valid (affects commit step in eval workflow)
+**Status**: in_progress — migration implemented in PR #28; pending merge + first successful DeepSeek run
+**Owner**: human (Haruki — merge PR, verify `deepseekllm` secret, trigger eval-run.yml)
+**Blocker**: PR #28 must be merged to main before eval-run.yml can use DeepSeek
+**Next Action**: (1) Merge PR #28. (2) Confirm `deepseekllm` secret exists in GitHub Secrets. (3) Trigger `eval-run.yml` via workflow_dispatch on main. Full steps: `docs/ops/eval_rerun_checklist.md`.
+**Unknowns**: Whether DeepSeek Anthropic-compatible API (`https://api.deepseek.com`) accepts the Anthropic SDK message format without error; PAT_TOKEN validity (affects commit step)
 **Related Files**: `docs/ops/ol022_recovery_runbook.md`, `docs/ops/eval_rerun_checklist.md`, `.github/workflows/eval-run.yml`, `scripts/eval_runner.py`, `evals/results/`
-**Close Condition**: `eval-run.yml` workflow dispatch produces ≥1 ok result; results file committed to repo. Definition of resolved: `docs/ops/ol022_recovery_runbook.md` §10.
+**Close Condition**: `eval-run.yml` triggers on main branch with `deepseekllm` secret → produces ≥1 ok result → results file committed to repo
 
 ---
 
