@@ -86,9 +86,18 @@ All 12 steps implemented through Round 6.12. (Observed: files exist. Inferred: n
 
 ---
 
+## LLM Quality Eval — Provider History
+
+| Date | Provider | Model | Cases | Trigger |
+|------|----------|-------|-------|---------|
+| 2026-03-25 | deepseek (in-context) | claude-sonnet-4-6 | 6/12 ok | Manual (API key blocked) |
+| next run | deepseek | deepseek-chat | 12/12 (expected) | workflow_dispatch |
+
+**Score continuity note**: Run 01 (in-context, claude-sonnet-4-6) and future runs (deepseek-chat via Anthropic-compatible API) are different providers. Scores should not be compared directly across provider boundaries without noting the provider field in the JSONL record.
+
 ## LLM Quality Eval — Run 01 Results (Observed: 2026-03-25)
 
-**Coverage**: 6/12 cases. Model: claude-sonnet-4-6 (production model). Remaining 6 blocked by ANTHROPIC_API_KEY credit exhaustion.
+**Coverage**: 6/12 cases. Provider: deepseek (in-context), model: claude-sonnet-4-6. Remaining 6 unrun — eval pipeline now migrated to DeepSeek (`deepseek-chat`); next run uses `deepseekllm` GitHub Secret.
 
 | Module | Cases Run | Avg Score | Verdict |
 |--------|-----------|-----------|---------|
@@ -102,7 +111,19 @@ All 12 steps implemented through Round 6.12. (Observed: files exist. Inferred: n
 
 Full results: `evals/results/run_2026-03-25.jsonl`, `evals/results/scores_2026-03-25.csv`, `docs/evals/llm_quality_run_01.md`
 
-**Unresolved**: DF-05 (ALT_DATA hallucination risk), CG-02 (STAT_ARB forbidden behavior), VP-02 (ML_SIGNAL sensitivity test). These are the highest-risk unrun cases. Do not expose ALT_DATA or STAT_ARB goals to users until these are scored.
+**Unresolved**: DF-05 (ALT_DATA hallucination risk), CG-02 (STAT_ARB forbidden behavior), VP-02 (ML_SIGNAL sensitivity test). Do not expose ALT_DATA or STAT_ARB goals to users until these are scored.
+
+## Eval Provider Config (current)
+
+| Param | Value | Override via |
+|-------|-------|-------------|
+| Provider | deepseek | `LLM_PROVIDER` env var |
+| Base URL | https://api.deepseek.com/anthropic | `LLM_BASE_URL` env var |
+| Model | deepseek-chat | `LLM_MODEL` env var |
+| API key env var | `ANTHROPIC_API_KEY` (Anthropic SDK naming; wired from `deepseekllm` GitHub Secret) | workflow env block |
+| Revert to Anthropic | Set `LLM_BASE_URL=` (empty), `LLM_MODEL=claude-3-haiku-20240307`, `ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}` | Workflow env block |
+
+**Product runtime model is unchanged**: `backend/src/llm/client.py` still uses `claude-sonnet-4-20250514` (Anthropic-hosted). Only the eval path changed.
 
 ---
 

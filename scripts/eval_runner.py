@@ -2,10 +2,13 @@
 """
 LLM Quality Eval Runner — Give Me a DAY
 Run: python3 scripts/eval_runner.py
-Requires: ANTHROPIC_API_KEY env var, anthropic package installed
+Requires: LLM_API_KEY env var (or ANTHROPIC_API_KEY as fallback), anthropic package installed
+
+Provider is configured via env vars (see provider config block below).
+Default: DeepSeek via Anthropic-compatible API (https://api.deepseek.com/anthropic).
+Revert to Anthropic-hosted: set LLM_PROVIDER=anthropic, LLM_BASE_URL=, LLM_MODEL=claude-3-haiku-20240307
 
 Loads cases from evals/llm_quality_cases.json
-Calls claude-sonnet-4-20250514 with real prompts from backend/src/llm/prompts.py
 Writes raw outputs to evals/results/run_YYYY-MM-DD.jsonl
 """
 
@@ -21,11 +24,17 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "backend", "src"))
 
 import anthropic
 
-# ── constants ──────────────────────────────────────────────────────────────
-# Use haiku — confirmed working in this workspace (Session 4 openhands E2E)
-# claude-sonnet-4-20250514 is the pipeline model, but haiku is used for eval
-# to control cost and because it has confirmed API access on this key.
-MODEL = "claude-3-haiku-20240307"
+# ── provider config (env-var driven — switch by setting these in workflow or shell) ─────
+# Default: DeepSeek via Anthropic-compatible API.
+# To revert to Anthropic-hosted Claude:
+#   LLM_PROVIDER=anthropic  LLM_BASE_URL=  LLM_MODEL=claude-3-haiku-20240307
+#   ANTHROPIC_API_KEY=<your-anthropic-key>
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "deepseek")
+LLM_BASE_URL  = os.environ.get("LLM_BASE_URL",  "https://api.deepseek.com/anthropic")
+LLM_MODEL     = os.environ.get("LLM_MODEL",     "deepseek-chat")
+MODEL         = LLM_MODEL  # alias — used in API calls and result records
+
+# ── constants ─────────────────────────────────────────────────────────────────
 TEMPERATURE = 0.3
 MAX_TOKENS = 4096
 PROMPT_VERSION = "1.0"
@@ -133,6 +142,7 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
             "case_id": case_id,
             "module": module,
             "scenario_label": scenario_label,
+            "provider": LLM_PROVIDER,
             "model": MODEL,
             "temperature": TEMPERATURE,
             "prompt_version": PROMPT_VERSION,
@@ -161,6 +171,7 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
             "case_id": case_id,
             "module": module,
             "scenario_label": scenario_label,
+            "provider": LLM_PROVIDER,
             "model": MODEL,
             "temperature": TEMPERATURE,
             "prompt_version": PROMPT_VERSION,
@@ -183,6 +194,7 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
         "case_id": case_id,
         "module": module,
         "scenario_label": scenario_label,
+        "provider": LLM_PROVIDER,
         "model": MODEL,
         "temperature": TEMPERATURE,
         "prompt_version": PROMPT_VERSION,
@@ -195,12 +207,19 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
 
 
 def main():
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    # ANTHROPIC_API_KEY is the primary key env var (Anthropic SDK naming convention).
+    # LLM_API_KEY is accepted as fallback for workflow-level overrides.
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY", "")
     if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
+        print("ERROR: ANTHROPIC_API_KEY not set (set ANTHROPIC_API_KEY; or LLM_API_KEY as override)", file=sys.stderr)
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    # Build client — base_url makes the Anthropic SDK point at a compatible endpoint.
+    # Leave base_url unset to use Anthropic-hosted (https://api.anthropic.com).
+    client_kwargs: dict = {"api_key": api_key}
+    if LLM_BASE_URL:
+        client_kwargs["base_url"] = LLM_BASE_URL
+    client = anthropic.Anthropic(**client_kwargs)
 
     with open(CASES_FILE) as f:
         cases_data = json.load(f)
@@ -209,8 +228,15 @@ def main():
     run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     os.makedirs(RESULTS_DIR, exist_ok=True)
     out_path = os.path.join(RESULTS_DIR, f"run_{run_date}.jsonl")
+    # Avoid overwriting an existing run file (e.g. same-day rerun after key rotation).
+    # Preserve previous results by suffixing with UTC hour+minute.
+    if os.path.exists(out_path):
+        ts = datetime.now(timezone.utc).strftime("%H%M")
+        out_path = os.path.join(RESULTS_DIR, f"run_{run_date}_rerun{ts}.jsonl")
+        print(f"Note: run_{run_date}.jsonl already exists — writing to {os.path.basename(out_path)}")
 
     print(f"=== LLM Eval Run — {run_date} ===")
+    print(f"Provider: {LLM_PROVIDER}  Base URL: {LLM_BASE_URL or '(Anthropic default)'}")
     print(f"Model: {MODEL}, Temp: {TEMPERATURE}")
     print(f"Cases: {len(cases)}")
     print(f"Output: {out_path}")

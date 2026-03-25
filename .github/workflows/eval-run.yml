@@ -22,15 +22,48 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install anthropic
+      - name: Install dependencies
         run: pip install anthropic pydantic pydantic-settings
 
       - name: Run eval
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Provider: DeepSeek via Anthropic-compatible API (Anthropic SDK, custom base_url).
+          # ANTHROPIC_API_KEY is the Anthropic SDK naming convention — used as primary key env var.
+          # To revert to Anthropic-hosted: set ANTHROPIC_API_KEY to secrets.ANTHROPIC_API_KEY,
+          # clear LLM_BASE_URL (empty string), set LLM_MODEL to claude-3-haiku-20240307.
+          ANTHROPIC_API_KEY: ${{ secrets.deepseekllm }}
+          LLM_BASE_URL: "https://api.deepseek.com/anthropic"
+          LLM_MODEL: "deepseek-chat"
+          LLM_PROVIDER: "deepseek"
         run: |
           cd ${{ github.workspace }}
           PYTHONPATH=backend/src python3 scripts/eval_runner.py || true
+
+      - name: Show results
+        if: always()
+        run: |
+          echo "=== evals/results/ after run ==="
+          ls -lh evals/results/
+          echo ""
+          echo "=== Latest run file ==="
+          latest=$(ls -t evals/results/run_*.jsonl 2>/dev/null | head -1)
+          if [ -n "$latest" ]; then
+            echo "File: $latest"
+            echo "Records: $(wc -l < $latest)"
+            python3 -c "
+          import json
+          with open('$latest') as f:
+              lines = f.readlines()
+          if lines:
+              first = json.loads(lines[0])
+              print(f'Provider: {first.get(\"provider\", \"unknown\")}  Model: {first.get(\"model\", \"unknown\")}')
+          for line in lines:
+              r = json.loads(line)
+              print(f'  {r[\"case_id\"]}: {r[\"status\"]}' + (f' -- {r[\"error\"][:120]}' if r.get('error') else ''))
+          "
+          else
+            echo "No run file found."
+          fi
 
       - name: Commit results
         if: always()
@@ -41,6 +74,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No new results to commit"
           else
-            git commit -m "chore: eval run results $(date -u +%Y-%m-%d)"
-            git push
+            git commit -m "chore: eval run results $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin HEAD
           fi
