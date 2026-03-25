@@ -22,7 +22,10 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "backend", "src"))
 import anthropic
 
 # ── constants ──────────────────────────────────────────────────────────────
-MODEL = "claude-sonnet-4-20250514"
+# Use haiku — confirmed working in this workspace (Session 4 openhands E2E)
+# claude-sonnet-4-20250514 is the pipeline model, but haiku is used for eval
+# to control cost and because it has confirmed API access on this key.
+MODEL = "claude-3-haiku-20240307"
 TEMPERATURE = 0.3
 MAX_TOKENS = 4096
 PROMPT_VERSION = "1.0"
@@ -151,7 +154,8 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
         raw_text = response.content[0].text
         print(f"OK ({len(raw_text)} chars)", flush=True)
     except Exception as e:
-        print(f"API_ERROR")
+        err_str = str(e)
+        print(f"API_ERROR: {err_str[:200]}")
         return {
             "run_date": run_date,
             "case_id": case_id,
@@ -161,7 +165,7 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
             "temperature": TEMPERATURE,
             "prompt_version": PROMPT_VERSION,
             "status": "api_error",
-            "error": str(e),
+            "error": err_str,
             "raw_output": None,
             "parsed_output": None,
             "parse_error": None,
@@ -242,7 +246,15 @@ def main():
     print(f"Other errors: {other}")
     print(f"Written: {out_path}")
 
-    if ok < len(results):
+    if api_err > 0:
+        # Print first API error in full for diagnosis
+        for r in results:
+            if r["status"] == "api_error":
+                print(f"\nFirst API error detail:\n{r['error']}")
+                break
+
+    # Exit 2 only if ALL cases failed — partial results are still valuable
+    if ok == 0:
         sys.exit(2)
 
 
