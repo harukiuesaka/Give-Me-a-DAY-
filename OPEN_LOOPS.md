@@ -1,7 +1,7 @@
 # OPEN_LOOPS.md
 
 **Role**: Full list of unresolved loops. Optimized for AI execution and closure.
-**Last updated**: 2026-03-25 (Session 6 — eval run 01)
+**Last updated**: 2026-03-25 (Session 6 — OL-022 recovery readiness)
 
 ---
 
@@ -27,10 +27,10 @@
 **Status**: open
 **Owner**: human (Haruki)
 **Blocker**: `for openhands` key in `Give Me a DAY` Anthropic workspace has zero credit balance (confirmed: GitHub Actions eval-run.yml run returned 400 error on all 12 cases 2026-03-25)
-**Next Action**: Haruki must either (a) recharge the `for openhands` key in the `Give Me a DAY` Anthropic workspace, OR (b) create a new API key and update `ANTHROPIC_API_KEY` in GitHub repository secrets. After resolving: trigger `eval-run.yml` via workflow_dispatch to run remaining 6 eval cases.
-**Unknowns**: Whether recharge or rotation is faster; whether other GitHub Actions workflows are also blocked
-**Related Files**: `.github/workflows/eval-run.yml`, `scripts/eval_runner.py`, `evals/results/`
-**Close Condition**: `eval-run.yml` triggers successfully and produces results for all 12 cases with status `ok`
+**Next Action**: Follow `docs/ops/ol022_recovery_runbook.md` §2. Either (a) recharge credits on `for openhands` key in Anthropic console → `Give Me a DAY` workspace, OR (b) create new key → update `ANTHROPIC_API_KEY` in GitHub Secrets. Then use `docs/ops/eval_rerun_checklist.md` to trigger and verify eval-run.yml.
+**Unknowns**: Whether recharge or rotation is faster; whether PAT_TOKEN is still valid (affects commit step in eval workflow)
+**Related Files**: `docs/ops/ol022_recovery_runbook.md`, `docs/ops/eval_rerun_checklist.md`, `.github/workflows/eval-run.yml`, `scripts/eval_runner.py`, `evals/results/`
+**Close Condition**: `eval-run.yml` workflow dispatch produces ≥1 ok result; results file committed to repo. Definition of resolved: `docs/ops/ol022_recovery_runbook.md` §10.
 
 ---
 

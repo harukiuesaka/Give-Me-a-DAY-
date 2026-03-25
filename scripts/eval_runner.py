@@ -209,6 +209,12 @@ def main():
     run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     os.makedirs(RESULTS_DIR, exist_ok=True)
     out_path = os.path.join(RESULTS_DIR, f"run_{run_date}.jsonl")
+    # Avoid overwriting an existing run file (e.g. same-day rerun after key rotation).
+    # Preserve previous results by suffixing with UTC hour+minute.
+    if os.path.exists(out_path):
+        ts = datetime.now(timezone.utc).strftime("%H%M")
+        out_path = os.path.join(RESULTS_DIR, f"run_{run_date}_rerun{ts}.jsonl")
+        print(f"Note: run_{run_date}.jsonl already exists — writing to {os.path.basename(out_path)}")
 
     print(f"=== LLM Eval Run — {run_date} ===")
     print(f"Model: {MODEL}, Temp: {TEMPERATURE}")
