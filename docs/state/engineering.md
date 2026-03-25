@@ -118,10 +118,10 @@ Full results: `evals/results/run_2026-03-25.jsonl`, `evals/results/scores_2026-0
 | Param | Value | Override via |
 |-------|-------|-------------|
 | Provider | deepseek | `LLM_PROVIDER` env var |
-| Base URL | https://api.deepseek.com | `LLM_BASE_URL` env var |
+| Base URL | https://api.deepseek.com/anthropic | `LLM_BASE_URL` env var |
 | Model | deepseek-chat | `LLM_MODEL` env var |
-| API key secret | `deepseekllm` (GitHub Secret) | `LLM_API_KEY` env var |
-| Revert to Anthropic | Set `LLM_BASE_URL=` (empty), `LLM_MODEL=claude-3-haiku-20240307`, `LLM_API_KEY=$ANTHROPIC_API_KEY` | Workflow env block |
+| API key env var | `ANTHROPIC_API_KEY` (Anthropic SDK naming; wired from `deepseekllm` GitHub Secret) | workflow env block |
+| Revert to Anthropic | Set `LLM_BASE_URL=` (empty), `LLM_MODEL=claude-3-haiku-20240307`, `ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}` | Workflow env block |
 
 **Product runtime model is unchanged**: `backend/src/llm/client.py` still uses `claude-sonnet-4-20250514` (Anthropic-hosted). Only the eval path changed.
 

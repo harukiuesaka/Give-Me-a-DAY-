@@ -40,6 +40,8 @@ No other GitHub Actions workflow that calls Anthropic directly is currently used
 3. Merge PR #28 (contains `eval-run.yml` and `eval_runner.py` changes).
 4. Trigger `eval-run.yml` via workflow_dispatch on `main`.
 
+Note: `eval-run.yml` sets `ANTHROPIC_API_KEY: ${{ secrets.deepseekllm }}` — the Anthropic SDK picks this up by name automatically. The base URL is `https://api.deepseek.com/anthropic` (DeepSeek's Anthropic-compatible endpoint).
+
 If `deepseekllm` secret is missing or expired: create a new DeepSeek API key at [platform.deepseek.com](https://platform.deepseek.com) → API Keys → Create. Set it as the `deepseekllm` secret value in GitHub Secrets.
 
 **Do not** share the key value in chat, issues, or commit messages. D-004: AI never generates, stores, or copies secret values.
@@ -51,8 +53,8 @@ If `deepseekllm` secret is missing or expired: create a new DeepSeek API key at 
 If DeepSeek connectivity fails and Anthropic key is recharged, revert by editing `.github/workflows/eval-run.yml` "Run eval" step env block:
 ```yaml
 # Anthropic-hosted revert:
-LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-LLM_BASE_URL: ""          # empty string = Anthropic default
+ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+LLM_BASE_URL: ""          # empty string = Anthropic default (https://api.anthropic.com)
 LLM_MODEL: "claude-3-haiku-20240307"
 LLM_PROVIDER: "anthropic"
 ```

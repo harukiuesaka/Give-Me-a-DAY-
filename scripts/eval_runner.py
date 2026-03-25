@@ -5,7 +5,7 @@ Run: python3 scripts/eval_runner.py
 Requires: LLM_API_KEY env var (or ANTHROPIC_API_KEY as fallback), anthropic package installed
 
 Provider is configured via env vars (see provider config block below).
-Default: DeepSeek via Anthropic-compatible API (https://api.deepseek.com).
+Default: DeepSeek via Anthropic-compatible API (https://api.deepseek.com/anthropic).
 Revert to Anthropic-hosted: set LLM_PROVIDER=anthropic, LLM_BASE_URL=, LLM_MODEL=claude-3-haiku-20240307
 
 Loads cases from evals/llm_quality_cases.json
@@ -28,9 +28,9 @@ import anthropic
 # Default: DeepSeek via Anthropic-compatible API.
 # To revert to Anthropic-hosted Claude:
 #   LLM_PROVIDER=anthropic  LLM_BASE_URL=  LLM_MODEL=claude-3-haiku-20240307
-#   LLM_API_KEY=<your-anthropic-key>  (or set ANTHROPIC_API_KEY)
+#   ANTHROPIC_API_KEY=<your-anthropic-key>
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "deepseek")
-LLM_BASE_URL  = os.environ.get("LLM_BASE_URL",  "https://api.deepseek.com")
+LLM_BASE_URL  = os.environ.get("LLM_BASE_URL",  "https://api.deepseek.com/anthropic")
 LLM_MODEL     = os.environ.get("LLM_MODEL",     "deepseek-chat")
 MODEL         = LLM_MODEL  # alias — used in API calls and result records
 
@@ -207,11 +207,11 @@ def run_case(client: anthropic.Anthropic, case: dict, run_date: str) -> dict:
 
 
 def main():
-    # LLM_API_KEY is the primary key env var (provider-agnostic).
-    # ANTHROPIC_API_KEY is accepted as fallback for backward compatibility.
-    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
+    # ANTHROPIC_API_KEY is the primary key env var (Anthropic SDK naming convention).
+    # LLM_API_KEY is accepted as fallback for workflow-level overrides.
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY", "")
     if not api_key:
-        print("ERROR: LLM_API_KEY not set (set LLM_API_KEY, or ANTHROPIC_API_KEY for Anthropic-hosted)", file=sys.stderr)
+        print("ERROR: ANTHROPIC_API_KEY not set (set ANTHROPIC_API_KEY; or LLM_API_KEY as override)", file=sys.stderr)
         sys.exit(1)
 
     # Build client — base_url makes the Anthropic SDK point at a compatible endpoint.

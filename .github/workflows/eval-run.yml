@@ -27,11 +27,12 @@ jobs:
 
       - name: Run eval
         env:
-          # Provider: DeepSeek via Anthropic-compatible API.
-          # To revert to Anthropic-hosted: change LLM_API_KEY to secrets.ANTHROPIC_API_KEY,
-          # set LLM_BASE_URL to empty string, set LLM_MODEL to claude-3-haiku-20240307.
-          LLM_API_KEY: ${{ secrets.deepseekllm }}
-          LLM_BASE_URL: "https://api.deepseek.com"
+          # Provider: DeepSeek via Anthropic-compatible API (Anthropic SDK, custom base_url).
+          # ANTHROPIC_API_KEY is the Anthropic SDK naming convention — used as primary key env var.
+          # To revert to Anthropic-hosted: set ANTHROPIC_API_KEY to secrets.ANTHROPIC_API_KEY,
+          # clear LLM_BASE_URL (empty string), set LLM_MODEL to claude-3-haiku-20240307.
+          ANTHROPIC_API_KEY: ${{ secrets.deepseekllm }}
+          LLM_BASE_URL: "https://api.deepseek.com/anthropic"
           LLM_MODEL: "deepseek-chat"
           LLM_PROVIDER: "deepseek"
         run: |
